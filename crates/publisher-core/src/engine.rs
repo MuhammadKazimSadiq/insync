@@ -127,6 +127,18 @@ impl PublisherEngine {
 
                                 if let Some(ref manifest) = existing_manifest {
                                     if let Some(record) = manifest.files.get(&rel_str) {
+                                        if dest_file.exists() {
+                                            let current_dst_hash =
+                                                compute_file_sha256(&dest_file).unwrap_or_default();
+                                            if current_dst_hash != record.destination_hash {
+                                                actions.push(PlanAction::Conflict {
+                                                    relative_path,
+                                                    reason: "Destination file modified externally".to_string(),
+                                                });
+                                                continue;
+                                            }
+                                        }
+
                                         if record.source_hash == src_hash && dest_file.exists() {
                                             actions.push(PlanAction::Skip { relative_path });
                                             continue;
@@ -253,6 +265,9 @@ impl PublisherEngine {
 
                     manifest.files.remove(&rel_str);
                     report.archived_count += 1;
+                }
+                PlanAction::Conflict { .. } => {
+                    report.conflict_count += 1;
                 }
                 PlanAction::Skip { .. } => {
                     report.skipped_count += 1;

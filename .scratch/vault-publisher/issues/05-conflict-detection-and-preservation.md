@@ -5,11 +5,11 @@ Conflict detection that guards against overwriting edits made by external collab
 
 **Blocked by:** 03 (Destination Manifest Ledger and Change Detection)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Planner checks current destination content hash against the hash recorded in `.vault-publisher/manifest.json`
-- [ ] If destination hash differs from recorded manifest hash, note action is set to `Conflict`
-- [ ] Conflicting destination files are never overwritten or archived during `apply`
-- [ ] Conflict events are clearly displayed in `preview` and logged in execution reports
-- [ ] Non-conflicting files continue to be processed and applied normally in the same run
-- [ ] Automated tests simulate external destination file edits and assert that conflicts are reported and file contents are preserved
+- [x] Planner checks current destination content hash against the hash recorded in `.vault-publisher/manifest.json`
+- [x] If destination hash differs from recorded manifest hash, note action is set to `Conflict`
+- [x] Conflicting destination files are never overwritten or archived during `apply`
+- [x] Conflict events are clearly displayed in `preview` and logged in execution reports
+- [x] Non-conflicting files continue to be processed and applied normally in the same run
+- [x] Automated tests simulate external destination file edits and assert that conflicts are reported and file contents are preserved
