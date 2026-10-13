@@ -35,6 +35,14 @@ enum Commands {
         #[arg(short, long)]
         profile: String,
     },
+    /// Full reconciliation pass
+    Reconcile {
+        /// Path to configuration JSON
+        config: PathBuf,
+        /// Profile ID
+        #[arg(short, long)]
+        profile: String,
+    },
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -67,6 +75,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("  Updated: {}", report.updated_count);
             println!("  Archived: {}", report.archived_count);
             println!("  Skipped: {}", report.skipped_count);
+            println!("  Conflicts: {}", report.conflict_count);
+            println!("  Warnings: {}", report.warn_count);
+        }
+        Commands::Reconcile { config, profile } => {
+            let data = fs::read_to_string(&config)?;
+            let parsed: PublisherConfig = serde_json::from_str(&data)?;
+            let report = engine.reconcile(&parsed, &profile)?;
+            println!("Reconciled successfully for profile '{}':", profile);
+            println!("  Created: {}", report.created_count);
+            println!("  Updated: {}", report.updated_count);
+            println!("  Archived: {}", report.archived_count);
+            println!("  Skipped: {}", report.skipped_count);
+            println!("  Conflicts: {}", report.conflict_count);
+            println!("  Warnings: {}", report.warn_count);
         }
     }
 

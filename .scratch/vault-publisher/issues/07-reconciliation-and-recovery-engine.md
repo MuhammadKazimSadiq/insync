@@ -5,11 +5,11 @@ A full reconciliation command (`vault-publisher reconcile`) and core method that
 
 **Blocked by:** 04 (Non-Destructive Retention and Safe Archiving), 05 (Destination Conflict Detection and Preservation), 06 (Attachment Policies and Wikilink Resolution)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Implements `reconcile` method in `publisher-core` and exposes it via `vault-publisher reconcile <config> --profile <id>`
-- [ ] Recalculates expected projection from scratch and compares against destination state and manifest records
-- [ ] Automatically detects and reconciles orphaned files previously published under this profile
-- [ ] Flags external modifications as conflicts without overwriting
-- [ ] Idempotency test: executing `reconcile` twice consecutively on unchanged vaults yields 0 operations on the second pass
-- [ ] Recovers cleanly if the manifest is temporarily missing or out-of-sync
+- [x] Implements `reconcile` method in `publisher-core` and exposes it via `vault-publisher reconcile <config> --profile <id>`
+- [x] Recalculates expected projection from scratch and compares against destination state and manifest records
+- [x] Automatically detects and reconciles orphaned files previously published under this profile
+- [x] Flags external modifications as conflicts without overwriting
+- [x] Idempotency test: executing `reconcile` twice consecutively on unchanged vaults yields 0 operations on the second pass
+- [x] Recovers cleanly if the manifest is temporarily missing or out-of-sync

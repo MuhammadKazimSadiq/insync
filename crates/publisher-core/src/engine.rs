@@ -23,6 +23,15 @@ impl PublisherEngine {
         Self
     }
 
+    pub fn reconcile(
+        &self,
+        config: &PublisherConfig,
+        profile_id: &str,
+    ) -> Result<RunReport, PublisherError> {
+        let plan = self.preview(config, profile_id)?;
+        self.apply(plan)
+    }
+
     fn validate_profile_paths(&self, src: &Path, dst: &Path) -> Result<(), PublisherError> {
         let src_canon = src.canonicalize().unwrap_or_else(|_| src.to_path_buf());
         let dst_canon = dst.canonicalize().unwrap_or_else(|_| dst.to_path_buf());
