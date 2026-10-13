@@ -1,5 +1,8 @@
 use crate::config::PublisherConfig;
 use crate::error::PublisherError;
+use crate::manifest::{
+    compute_file_sha256, load_manifest, save_manifest, FileRecord, Manifest,
+};
 use crate::metadata::extract_frontmatter;
 use crate::plan::{Plan, PlanAction, RunReport};
 use crate::rules::evaluate_rule_group;
@@ -14,11 +17,7 @@ impl PublisherEngine {
         Self
     }
 
-    fn validate_profile_paths(
-        &self,
-        src: &Path,
-        dst: &Path,
-    ) -> Result<(), PublisherError> {
+    fn validate_profile_paths(&self, src: &Path, dst: &Path) -> Result<(), PublisherError> {
         let src_canon = src.canonicalize().unwrap_or_else(|_| src.to_path_buf());
         let dst_canon = dst.canonicalize().unwrap_or_else(|_| dst.to_path_buf());
 
@@ -58,7 +57,7 @@ impl PublisherEngine {
 
         for exclude in excludes {
             if exclude.starts_with("*.") {
-                let suffix = &exclude[1..]; // e.g. ".draft.md"
+                let suffix = &exclude[1..];
                 if filename.ends_with(suffix) || rel_str.ends_with(suffix) {
                     return true;
                 }
@@ -83,6 +82,7 @@ impl PublisherEngine {
 
         self.validate_profile_paths(&profile.source_vault, &profile.destination_vault)?;
 
+        let existing_manifest = load_manifest(&profile.destination_vault).ok();
         let mut actions = Vec::new();
 
         for scope in &profile.scopes {
@@ -108,7 +108,6 @@ impl PublisherEngine {
                             let is_match = if let Some(rules) = &profile.rules {
                                 evaluate_rule_group(rules, &meta.frontmatter)
                             } else {
-                                // Default rule: status equals completed
                                 meta.frontmatter
                                     .get("status")
                                     .and_then(|v| v.as_str())
@@ -116,7 +115,27 @@ impl PublisherEngine {
                             };
 
                             if is_match {
-                                actions.push(PlanAction::Create { relative_path });
+                                let rel_str = relative_path.to_string_lossy().to_string();
+                                let src_hash = compute_file_sha256(path).unwrap_or_default();
+                                let dest_file = profile.destination_vault.join(&relative_path);
+
+                                if let Some(ref manifest) = existing_manifest {
+                                    if let Some(record) = manifest.files.get(&rel_str) {
+                                        if record.source_hash == src_hash && dest_file.exists() {
+                                            actions.push(PlanAction::Skip { relative_path });
+                                            continue;
+                                        } else {
+                                            actions.push(PlanAction::Update { relative_path });
+                                            continue;
+                                        }
+                                    }
+                                }
+
+                                if dest_file.exists() {
+                                    actions.push(PlanAction::Update { relative_path });
+                                } else {
+                                    actions.push(PlanAction::Create { relative_path });
+                                }
                             }
                         }
                     }
@@ -138,6 +157,10 @@ impl PublisherEngine {
             ..Default::default()
         };
 
+        let mut manifest = load_manifest(&plan.destination_vault)
+            .unwrap_or_else(|_| Manifest::new(&plan.profile_id));
+        manifest.profile_id = plan.profile_id.clone();
+
         for action in plan.actions {
             match action {
                 PlanAction::Create { relative_path } => {
@@ -148,10 +171,23 @@ impl PublisherEngine {
                         fs::create_dir_all(parent)?;
                     }
 
-                    // Temporary staging file for atomic replacement
                     let tmp_dst = dst.with_extension("tmp.vault-publisher");
                     fs::copy(&src, &tmp_dst)?;
                     fs::rename(&tmp_dst, &dst)?;
+
+                    let src_hash = compute_file_sha256(&src)?;
+                    let dst_hash = compute_file_sha256(&dst)?;
+                    let rel_str = relative_path.to_string_lossy().to_string();
+
+                    manifest.files.insert(
+                        rel_str.clone(),
+                        FileRecord {
+                            relative_path: rel_str,
+                            source_hash: src_hash,
+                            destination_hash: dst_hash,
+                            last_published: "now".to_string(),
+                        },
+                    );
 
                     report.created_count += 1;
                 }
@@ -167,6 +203,20 @@ impl PublisherEngine {
                     fs::copy(&src, &tmp_dst)?;
                     fs::rename(&tmp_dst, &dst)?;
 
+                    let src_hash = compute_file_sha256(&src)?;
+                    let dst_hash = compute_file_sha256(&dst)?;
+                    let rel_str = relative_path.to_string_lossy().to_string();
+
+                    manifest.files.insert(
+                        rel_str.clone(),
+                        FileRecord {
+                            relative_path: rel_str,
+                            source_hash: src_hash,
+                            destination_hash: dst_hash,
+                            last_published: "now".to_string(),
+                        },
+                    );
+
                     report.updated_count += 1;
                 }
                 PlanAction::Archive { .. } => {
@@ -177,6 +227,8 @@ impl PublisherEngine {
                 }
             }
         }
+
+        save_manifest(&plan.destination_vault, &manifest)?;
 
         Ok(report)
     }
