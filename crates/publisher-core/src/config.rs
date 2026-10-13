@@ -1,3 +1,4 @@
+pub use crate::rules::{RuleGroup, RulePredicate};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -16,4 +17,8 @@ pub struct ProfileConfig {
     pub source_vault: PathBuf,
     pub destination_vault: PathBuf,
     pub scopes: Vec<String>,
+    #[serde(default)]
+    pub excludes: Vec<String>,
+    #[serde(default)]
+    pub rules: Option<RuleGroup>,
 }

@@ -16,4 +16,7 @@ pub enum PublisherError {
 
     #[error("Invalid path: {0}")]
     InvalidPath(String),
+
+    #[error("Unsafe path: {0}")]
+    UnsafePath(String),
 }

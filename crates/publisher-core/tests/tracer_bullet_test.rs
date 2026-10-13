@@ -28,6 +28,8 @@ fn test_minimal_publisher_tracer_bullet() {
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: dest_dir.path().to_path_buf(),
             scopes: vec!["Courses".to_string()],
+            excludes: vec![],
+            rules: None,
         }],
     };
 
