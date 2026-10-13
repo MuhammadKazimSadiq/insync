@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "crates/publisher-core",
+    "crates/vault-publisher-cli",
+]
+resolver = "2"

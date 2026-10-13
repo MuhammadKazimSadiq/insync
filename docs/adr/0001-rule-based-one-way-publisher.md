@@ -1,0 +1,3 @@
+# Rule-Based One-Way Publisher Instead of Two-Way Sync
+
+The application models publication as a deterministic, one-way projection from an authoritative private source vault to a shared destination vault based on explicit frontmatter rules. We rejected general-purpose two-way synchronization because bi-directional conflict resolution between private notes and shared spaces creates catastrophic privacy leak risks and unnecessary operational complexity. The source vault remains strictly authoritative; destination changes made by collaborators are flagged as conflicts and never synced back into private notes.

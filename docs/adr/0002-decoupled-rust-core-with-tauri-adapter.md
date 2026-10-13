@@ -1,0 +1,3 @@
+# Decoupled Rust Publishing Engine with Tauri 2 Adapter
+
+The core publishing logic (metadata parsing, rule evaluation, plan generation, execution, file watching, and reconciliation) is implemented in an independent Rust crate (`publisher-core`) with a CLI runner, completely decoupled from Tauri. Tauri 2 is treated strictly as an ambient UI adapter that calls commands on the core engine. This boundary allows headless background agent execution, robust deterministic integration testing on temporary directories without a windowing context, and future CLI or alternative UI wrappers without rewriting domain logic.

@@ -1,0 +1,3 @@
+# Destination Manifest Ledger and Archive Safety Defaults
+
+To prevent accidental data loss in shared folders, the publisher writes a `.vault-publisher/manifest.json` ledger inside the destination vault recording file hashes, publishing timestamps, and profile metadata. The publisher will never delete or overwrite unmanaged destination files. Furthermore, when published notes no longer match rules or are deleted from source, the default retention behavior is non-destructive archiving into an archive directory rather than immediate deletion. External destination modifications are detected via content hash divergence and flagged as conflicts instead of being silently overwritten.

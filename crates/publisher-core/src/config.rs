@@ -1,0 +1,19 @@
+use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PublisherConfig {
+    pub version: u32,
+    pub profiles: Vec<ProfileConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileConfig {
+    pub id: String,
+    pub name: String,
+    pub source_vault: PathBuf,
+    pub destination_vault: PathBuf,
+    pub scopes: Vec<String>,
+}
