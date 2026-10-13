@@ -6,9 +6,12 @@ use crate::manifest::{
 use crate::metadata::extract_frontmatter;
 use crate::plan::{Plan, PlanAction, RunReport};
 use crate::rules::evaluate_rule_group;
+use std::collections::HashSet;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
+
+pub const ARCHIVE_DIR: &str = ".vault-publisher-archive";
 
 pub struct PublisherEngine;
 
@@ -84,6 +87,7 @@ impl PublisherEngine {
 
         let existing_manifest = load_manifest(&profile.destination_vault).ok();
         let mut actions = Vec::new();
+        let mut matched_paths = HashSet::new();
 
         for scope in &profile.scopes {
             let scope_dir = profile.source_vault.join(scope);
@@ -116,6 +120,8 @@ impl PublisherEngine {
 
                             if is_match {
                                 let rel_str = relative_path.to_string_lossy().to_string();
+                                matched_paths.insert(rel_str.clone());
+
                                 let src_hash = compute_file_sha256(path).unwrap_or_default();
                                 let dest_file = profile.destination_vault.join(&relative_path);
 
@@ -139,6 +145,17 @@ impl PublisherEngine {
                             }
                         }
                     }
+                }
+            }
+        }
+
+        // Check for previously managed files that are no longer matched or deleted
+        if let Some(ref manifest) = existing_manifest {
+            for managed_path in manifest.files.keys() {
+                if !matched_paths.contains(managed_path) {
+                    actions.push(PlanAction::Archive {
+                        relative_path: PathBuf::from(managed_path),
+                    });
                 }
             }
         }
@@ -219,7 +236,22 @@ impl PublisherEngine {
 
                     report.updated_count += 1;
                 }
-                PlanAction::Archive { .. } => {
+                PlanAction::Archive { relative_path } => {
+                    let dst = plan.destination_vault.join(&relative_path);
+                    let rel_str = relative_path.to_string_lossy().to_string();
+
+                    if dst.exists() {
+                        let archive_target = plan
+                            .destination_vault
+                            .join(ARCHIVE_DIR)
+                            .join(&relative_path);
+                        if let Some(parent) = archive_target.parent() {
+                            fs::create_dir_all(parent)?;
+                        }
+                        fs::rename(&dst, &archive_target)?;
+                    }
+
+                    manifest.files.remove(&rel_str);
                     report.archived_count += 1;
                 }
                 PlanAction::Skip { .. } => {

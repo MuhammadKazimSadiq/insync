@@ -5,11 +5,11 @@ Safe retention handling for notes that were previously published and recorded in
 
 **Blocked by:** 03 (Destination Manifest Ledger and Change Detection)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Planner detects when a manifest-managed destination file is no longer produced by source evaluation
-- [ ] Marked as `Archive` in the plan
-- [ ] During `apply`, unmatching files are moved to `.vault-publisher-archive/<timestamp>/` preserving relative path structure
-- [ ] Files present in the destination vault but absent from the manifest ledger are classified as unmanaged and untouched
-- [ ] Dry-run mode displays planned archives without touching the filesystem
-- [ ] Automated tests verify that unmatching files are archived safely, unmanaged files are left intact, and manifest is updated accordingly
+- [x] Planner detects when a manifest-managed destination file is no longer produced by source evaluation
+- [x] Marked as `Archive` in the plan
+- [x] During `apply`, unmatching files are moved to `.vault-publisher-archive/<timestamp>/` preserving relative path structure
+- [x] Files present in the destination vault but absent from the manifest ledger are classified as unmanaged and untouched
+- [x] Dry-run mode displays planned archives without touching the filesystem
+- [x] Automated tests verify that unmatching files are archived safely, unmanaged files are left intact, and manifest is updated accordingly
