@@ -26,6 +26,7 @@ fn test_manifest_ledger_and_change_detection() {
             scopes: vec!["Courses".to_string()],
             excludes: vec![],
             rules: None,
+            attachments: None,
         }],
     };
 

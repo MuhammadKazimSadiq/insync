@@ -1,3 +1,4 @@
+pub use crate::attachments::{AttachmentConfig, AttachmentMode};
 pub use crate::rules::{RuleGroup, RulePredicate};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -21,4 +22,6 @@ pub struct ProfileConfig {
     pub excludes: Vec<String>,
     #[serde(default)]
     pub rules: Option<RuleGroup>,
+    #[serde(default)]
+    pub attachments: Option<AttachmentConfig>,
 }

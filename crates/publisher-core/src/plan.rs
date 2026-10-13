@@ -8,6 +8,7 @@ pub enum PlanAction {
     Archive { relative_path: PathBuf },
     Skip { relative_path: PathBuf },
     Conflict { relative_path: PathBuf, reason: String },
+    Warn { relative_path: Option<PathBuf>, reason: String },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -26,4 +27,5 @@ pub struct RunReport {
     pub archived_count: usize,
     pub skipped_count: usize,
     pub conflict_count: usize,
+    pub warn_count: usize,
 }

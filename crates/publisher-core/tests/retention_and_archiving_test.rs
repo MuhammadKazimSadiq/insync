@@ -29,6 +29,7 @@ fn test_retention_and_safe_archiving() {
             scopes: vec!["Courses".to_string()],
             excludes: vec![],
             rules: None,
+            attachments: None,
         }],
     };
 

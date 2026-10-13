@@ -1,3 +1,6 @@
+use crate::attachments::{
+    extract_attachment_references, resolve_attachment_path, AttachmentMode,
+};
 use crate::config::PublisherConfig;
 use crate::error::PublisherError;
 use crate::manifest::{
@@ -88,6 +91,7 @@ impl PublisherEngine {
         let existing_manifest = load_manifest(&profile.destination_vault).ok();
         let mut actions = Vec::new();
         let mut matched_paths = HashSet::new();
+        let mut scheduled_attachment_paths = HashSet::new();
 
         for scope in &profile.scopes {
             let scope_dir = profile.source_vault.join(scope);
@@ -132,7 +136,7 @@ impl PublisherEngine {
                                                 compute_file_sha256(&dest_file).unwrap_or_default();
                                             if current_dst_hash != record.destination_hash {
                                                 actions.push(PlanAction::Conflict {
-                                                    relative_path,
+                                                    relative_path: relative_path.clone(),
                                                     reason: "Destination file modified externally".to_string(),
                                                 });
                                                 continue;
@@ -140,19 +144,71 @@ impl PublisherEngine {
                                         }
 
                                         if record.source_hash == src_hash && dest_file.exists() {
-                                            actions.push(PlanAction::Skip { relative_path });
-                                            continue;
+                                            actions.push(PlanAction::Skip { relative_path: relative_path.clone() });
                                         } else {
-                                            actions.push(PlanAction::Update { relative_path });
-                                            continue;
+                                            actions.push(PlanAction::Update { relative_path: relative_path.clone() });
                                         }
+                                    } else if dest_file.exists() {
+                                        actions.push(PlanAction::Update { relative_path: relative_path.clone() });
+                                    } else {
+                                        actions.push(PlanAction::Create { relative_path: relative_path.clone() });
                                     }
+                                } else if dest_file.exists() {
+                                    actions.push(PlanAction::Update { relative_path: relative_path.clone() });
+                                } else {
+                                    actions.push(PlanAction::Create { relative_path: relative_path.clone() });
                                 }
 
-                                if dest_file.exists() {
-                                    actions.push(PlanAction::Update { relative_path });
-                                } else {
-                                    actions.push(PlanAction::Create { relative_path });
+                                // Check attachment policy
+                                if let Some(ref att_cfg) = profile.attachments {
+                                    if att_cfg.mode == AttachmentMode::Referenced {
+                                        let att_refs = extract_attachment_references(&content);
+                                        for att_ref in att_refs {
+                                            if let Some(att_rel) = resolve_attachment_path(
+                                                &profile.source_vault,
+                                                &relative_path,
+                                                &att_ref,
+                                            ) {
+                                                let is_scoped = profile
+                                                    .scopes
+                                                    .iter()
+                                                    .any(|s| att_rel.starts_with(s));
+
+                                                if is_scoped
+                                                    && !self.is_excluded(&att_rel, &profile.excludes)
+                                                {
+                                                    let att_rel_str =
+                                                        att_rel.to_string_lossy().to_string();
+                                                    if scheduled_attachment_paths.insert(att_rel_str.clone()) {
+                                                        matched_paths.insert(att_rel_str.clone());
+                                                        let att_src = profile.source_vault.join(&att_rel);
+                                                        let att_dst = profile.destination_vault.join(&att_rel);
+                                                        let att_src_hash = compute_file_sha256(&att_src).unwrap_or_default();
+
+                                                        if let Some(ref manifest) = existing_manifest {
+                                                            if let Some(record) = manifest.files.get(&att_rel_str) {
+                                                                if att_dst.exists() && record.source_hash == att_src_hash {
+                                                                    actions.push(PlanAction::Skip { relative_path: att_rel });
+                                                                    continue;
+                                                                }
+                                                            }
+                                                        }
+
+                                                        if att_dst.exists() {
+                                                            actions.push(PlanAction::Update { relative_path: att_rel });
+                                                        } else {
+                                                            actions.push(PlanAction::Create { relative_path: att_rel });
+                                                        }
+                                                    }
+                                                }
+                                            } else {
+                                                actions.push(PlanAction::Warn {
+                                                    relative_path: None,
+                                                    reason: format!("Referenced attachment '{}' in '{}' not found", att_ref, rel_str),
+                                                });
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -268,6 +324,9 @@ impl PublisherEngine {
                 }
                 PlanAction::Conflict { .. } => {
                     report.conflict_count += 1;
+                }
+                PlanAction::Warn { .. } => {
+                    report.warn_count += 1;
                 }
                 PlanAction::Skip { .. } => {
                     report.skipped_count += 1;

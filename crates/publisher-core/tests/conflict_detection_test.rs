@@ -28,6 +28,7 @@ fn test_destination_conflict_detection_and_preservation() {
             scopes: vec!["Courses".to_string()],
             excludes: vec![],
             rules: None,
+            attachments: None,
         }],
     };
 

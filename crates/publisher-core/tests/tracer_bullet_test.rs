@@ -30,6 +30,7 @@ fn test_minimal_publisher_tracer_bullet() {
             scopes: vec!["Courses".to_string()],
             excludes: vec![],
             rules: None,
+            attachments: None,
         }],
     };
 

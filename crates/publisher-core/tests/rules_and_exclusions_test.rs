@@ -125,6 +125,7 @@ fn test_path_safety_and_exclusions() {
             scopes: vec!["Courses".to_string()],
             excludes: vec![],
             rules: None,
+            attachments: None,
         }],
     };
     let err = engine.preview(&unsafe_same_config, "bad-profile").unwrap_err();
@@ -148,6 +149,7 @@ fn test_path_safety_and_exclusions() {
             scopes: vec!["Courses".to_string()],
             excludes: vec![],
             rules: None,
+            attachments: None,
         }],
     };
     let err_nested = engine.preview(&unsafe_nested_config, "bad-nested").unwrap_err();
@@ -185,6 +187,7 @@ fn test_path_safety_and_exclusions() {
                 "*.draft.md".to_string(),
             ],
             rules: None,
+            attachments: None,
         }],
     };
 

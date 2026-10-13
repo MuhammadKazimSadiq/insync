@@ -5,12 +5,12 @@ Configurable attachment publishing policies (`markdown-only`, `explicit`, and `r
 
 **Blocked by:** 03 (Destination Manifest Ledger and Change Detection)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] Profile configuration supports `attachments.mode`: `"markdown-only"`, `"explicit"`, `"referenced"`
-- [ ] Parser extracts wikilink attachments (`![[file.ext]]`) and standard Markdown links (`![](path/file.ext)`)
-- [ ] In `referenced` mode, resolved attachments within allowed source scopes are scheduled for publishing and copied atomically
-- [ ] Non-whitelisted attachments or attachments outside permitted scopes are blocked from leaking into the destination
-- [ ] Missing attachment files emit a `Warn` in the plan and execution log, allowing Markdown note publication to proceed
-- [ ] Attachment dependencies are tracked in `.vault-publisher/manifest.json`
-- [ ] Automated integration tests verify that referenced attachments are copied, non-scoped attachments are excluded, and missing attachments produce warnings
+- [x] Profile configuration supports `attachments.mode`: `"markdown-only"`, `"explicit"`, `"referenced"`
+- [x] Parser extracts wikilink attachments (`![[file.ext]]`) and standard Markdown links (`![](path/file.ext)`)
+- [x] In `referenced` mode, resolved attachments within allowed source scopes are scheduled for publishing and copied atomically
+- [x] Non-whitelisted attachments or attachments outside permitted scopes are blocked from leaking into the destination
+- [x] Missing attachment files emit a `Warn` in the plan and execution log, allowing Markdown note publication to proceed
+- [x] Attachment dependencies are tracked in `.vault-publisher/manifest.json`
+- [x] Automated integration tests verify that referenced attachments are copied, non-scoped attachments are excluded, and missing attachments produce warnings
