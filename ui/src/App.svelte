@@ -401,7 +401,7 @@
 
   {#if diagnosticsData}
     <div class="modal-backdrop" role="presentation" on:click={() => (diagnosticsData = null)} on:keydown={(e) => e.key === 'Escape' && (diagnosticsData = null)}>
-      <div class="modal" role="dialog" aria-modal="true" on:click|stopPropagation on:keydown|stopPropagation>
+      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
         <h2>Diagnostics Report</h2>
         <pre>{JSON.stringify(diagnosticsData, null, 2)}</pre>
         <button class="btn btn-secondary" on:click={() => (diagnosticsData = null)}>Close</button>
