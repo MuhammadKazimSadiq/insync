@@ -1,0 +1,14 @@
+{
+  "name": "vault-publisher",
+  "private": true,
+  "description": "Rule-based one-way publisher from private Obsidian source vault to shared destination vault",
+  "scripts": {
+    "start": "cargo run -p vault-publisher-desktop --release",
+    "desktop": "cargo run -p vault-publisher-desktop --release",
+    "desktop:bin": "./target/release/vault-publisher-desktop",
+    "ui": "npm --prefix ui run dev",
+    "ui:build": "npm --prefix ui run build",
+    "cli": "cargo run -p vault-publisher --",
+    "test": "cargo test"
+  }
+}
