@@ -1,4 +1,4 @@
-import type { ProfileConfig, Plan, RunReport } from './types';
+import type { ProfileConfig, Plan, RunReport, HistoryEntry } from './types';
 
 function isTauri(): boolean {
   return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
@@ -6,8 +6,13 @@ function isTauri(): boolean {
 
 export async function listProfiles(): Promise<ProfileConfig[]> {
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('list_profiles');
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const res = await invoke<ProfileConfig[]>('list_profiles');
+      return res;
+    } catch (err) {
+      console.warn('[VaultPublisher] Tauri list_profiles failed, falling back to local storage:', err);
+    }
   }
   const data = localStorage.getItem('vault_publisher_profiles');
   return data ? JSON.parse(data) : [];
@@ -15,8 +20,13 @@ export async function listProfiles(): Promise<ProfileConfig[]> {
 
 export async function saveProfile(profile: ProfileConfig): Promise<void> {
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('save_profile', { profile });
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('save_profile', { profile });
+      return;
+    } catch (err) {
+      console.warn('[VaultPublisher] Tauri save_profile failed, saving locally:', err);
+    }
   }
   const profiles = await listProfiles();
   const idx = profiles.findIndex((p) => p.id === profile.id);
@@ -30,8 +40,13 @@ export async function saveProfile(profile: ProfileConfig): Promise<void> {
 
 export async function deleteProfile(profileId: string): Promise<void> {
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('delete_profile', { profileId });
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('delete_profile', { profileId });
+      return;
+    } catch (err) {
+      console.warn('[VaultPublisher] Tauri delete_profile failed, deleting locally:', err);
+    }
   }
   let profiles = await listProfiles();
   profiles = profiles.filter((p) => p.id !== profileId);
@@ -40,8 +55,12 @@ export async function deleteProfile(profileId: string): Promise<void> {
 
 export async function previewProfile(profileId: string): Promise<Plan> {
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('preview_profile', { profileId });
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<Plan>('preview_profile', { profileId });
+    } catch (err) {
+      console.warn('[VaultPublisher] Tauri preview_profile failed, using preview fallback:', err);
+    }
   }
   return {
     profile_id: profileId,
@@ -57,8 +76,12 @@ export async function previewProfile(profileId: string): Promise<Plan> {
 
 export async function applyProfile(profileId: string): Promise<RunReport> {
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('apply_profile', { profileId });
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<RunReport>('apply_profile', { profileId });
+    } catch (err) {
+      console.warn('[VaultPublisher] Tauri apply_profile failed, using mock report:', err);
+    }
   }
   return {
     profile_id: profileId,
@@ -73,8 +96,12 @@ export async function applyProfile(profileId: string): Promise<RunReport> {
 
 export async function reconcileProfile(profileId: string): Promise<RunReport> {
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('reconcile_profile', { profileId });
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<RunReport>('reconcile_profile', { profileId });
+    } catch (err) {
+      console.warn('[VaultPublisher] Tauri reconcile_profile failed, using mock report:', err);
+    }
   }
   return {
     profile_id: profileId,
@@ -89,8 +116,12 @@ export async function reconcileProfile(profileId: string): Promise<RunReport> {
 
 export async function getRunHistory(): Promise<HistoryEntry[]> {
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('get_run_history');
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke<HistoryEntry[]>('get_run_history');
+    } catch (err) {
+      console.warn('[VaultPublisher] Tauri get_run_history failed, reading local storage:', err);
+    }
   }
   const data = localStorage.getItem('vault_publisher_history');
   return data ? JSON.parse(data) : [];
@@ -98,13 +129,17 @@ export async function getRunHistory(): Promise<HistoryEntry[]> {
 
 export async function getDiagnostics(): Promise<any> {
   if (isTauri()) {
-    const { invoke } = await import('@tauri-apps/api/core');
-    return await invoke('get_diagnostics');
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      return await invoke('get_diagnostics');
+    } catch (err) {
+      console.warn('[VaultPublisher] Tauri get_diagnostics failed, using browser diagnostics:', err);
+    }
   }
   return {
     version: '0.1.0-web',
     mode: 'Browser Sandbox',
-    os: navigator.userAgent,
+    os: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown',
     profilesCount: (await listProfiles()).length,
   };
 }

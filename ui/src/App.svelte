@@ -24,6 +24,9 @@
   let loading = false;
   let message = '';
 
+  // Theme state: 'light' | 'dark'
+  let currentTheme: 'light' | 'dark' = 'light';
+
   // Form state
   let editId = '';
   let editName = '';
@@ -37,8 +40,29 @@
   let editAttachmentMode: AttachmentMode = 'referenced';
 
   onMount(async () => {
+    // Detect and apply initial theme
+    const savedTheme = localStorage.getItem('vault_publisher_theme');
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      currentTheme = savedTheme;
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      currentTheme = 'dark';
+    } else {
+      currentTheme = 'light';
+    }
+    applyTheme(currentTheme);
+
     await refreshProfiles();
   });
+
+  function applyTheme(t: 'light' | 'dark') {
+    currentTheme = t;
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('vault_publisher_theme', t);
+  }
+
+  function toggleTheme() {
+    applyTheme(currentTheme === 'light' ? 'dark' : 'light');
+  }
 
   async function refreshProfiles() {
     loading = true;
@@ -235,6 +259,13 @@
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn btn-secondary theme-toggle-btn" on:click={toggleTheme} title="Switch Light / Dark Theme">
+        {#if currentTheme === 'dark'}
+          🌙 Dark Mode
+        {:else}
+          ☀️ Light Mode
+        {/if}
+      </button>
       <button class="btn btn-secondary" on:click={showHistory}>Activity Log</button>
       <button class="btn btn-secondary" on:click={exportConfig}>Export Config</button>
       <button class="btn btn-secondary" on:click={showDiagnostics}>Diagnostics</button>
@@ -244,7 +275,7 @@
 
   {#if message}
     <div class="alert alert-info">
-      {message}
+      <span>{message}</span>
       <button class="close-btn" on:click={() => (message = '')}>×</button>
     </div>
   {/if}
@@ -283,68 +314,82 @@
             </div>
           </div>
         {/each}
+
+        {#if profiles.length === 0}
+          <div class="empty-state">
+            <p>No publishing profiles configured yet.</p>
+            <button class="btn btn-primary" style="margin-top: 10px;" on:click={startCreate}>Create your first profile</button>
+          </div>
+        {/if}
       </div>
     </section>
 
-    <!-- RIGHT PANE: EDITOR OR PREVIEW -->
+    <!-- RIGHT PANEL: EDIT FORM OR PREVIEW -->
     <section class="card detail-card">
       {#if isEditing}
         <div class="card-header">
-          <h2>{editId ? 'Edit Profile' : 'New Profile'}</h2>
+          <h2>{editId.startsWith('profile-') ? 'Create Profile' : 'Edit Profile'}</h2>
           <button class="btn btn-ghost" on:click={() => (isEditing = false)}>Cancel</button>
         </div>
 
-        <form class="editor-form" on:submit|preventDefault={handleSave}>
+        <form on:submit|preventDefault={handleSave}>
           <div class="form-group">
-            <label for="p-name">Profile Name</label>
-            <input id="p-name" type="text" bind:value={editName} placeholder="e.g. Shared Courses" required />
-          </div>
-
-          <div class="form-row">
-            <div class="form-group flex-1">
-              <label for="p-src">Source Vault Directory</label>
-              <input id="p-src" type="text" bind:value={editSource} placeholder="/Users/name/Vaults/Private" required />
-            </div>
-            <div class="form-group flex-1">
-              <label for="p-dst">Destination Vault Directory</label>
-              <input id="p-dst" type="text" bind:value={editDest} placeholder="/Users/name/Shared/CourseVault" required />
-            </div>
+            <label for="name">Profile Name</label>
+            <input id="name" bind:value={editName} placeholder="e.g. Shared Notes" />
           </div>
 
           <div class="form-group">
-            <label for="p-scopes">Included Scopes (Folders)</label>
-            <input id="p-scopes" type="text" bind:value={editScopes} placeholder="Courses, Projects/Public" />
-            <small class="hint">Only files within these source subfolders will be evaluated.</small>
+            <label for="source">Source Vault Path (Private)</label>
+            <input id="source" bind:value={editSource} placeholder="/Users/me/Documents/MyNotes" />
           </div>
 
           <div class="form-group">
-            <label for="p-excludes">Exclusions (Patterns / Folders)</label>
-            <input id="p-excludes" type="text" bind:value={editExcludes} placeholder=".obsidian, _private, *.draft.md" />
+            <label for="dest">Destination Vault Path (Shared)</label>
+            <input id="dest" bind:value={editDest} placeholder="/Users/me/Documents/SharedNotes" />
+          </div>
+
+          <div class="form-group">
+            <label for="scopes">Scope Folders (comma-separated)</label>
+            <input id="scopes" bind:value={editScopes} placeholder="Courses, Projects/Public" />
+            <span class="hint">Leave empty to include all non-excluded folders</span>
+          </div>
+
+          <div class="form-group">
+            <label for="excludes">Exclusions (comma-separated patterns)</label>
+            <input id="excludes" bind:value={editExcludes} placeholder=".obsidian, _private, *.draft.md" />
           </div>
 
           <div class="form-box">
-            <h3>Publishing Rule Filter</h3>
-            <p class="rule-hint">Notes publish when frontmatter matches:</p>
+            <h3>Publishing Filter Rule</h3>
+            <p class="rule-hint">Notes are only published if frontmatter matches this predicate:</p>
             <div class="form-row">
-              <input type="text" bind:value={editRuleProp} placeholder="Property (e.g. status)" style="width: 140px;" />
-              <select bind:value={editRuleOp} style="width: 130px;">
-                <option value="equals">equals</option>
-                <option value="notEquals">notEquals</option>
-                <option value="exists">exists</option>
-                <option value="notExists">notExists</option>
-                <option value="contains">contains</option>
-                <option value="in">in</option>
-              </select>
-              <input type="text" bind:value={editRuleVal} placeholder="Value (e.g. completed)" class="flex-1" />
+              <div class="flex-1">
+                <label for="prop">Frontmatter Field</label>
+                <input id="prop" bind:value={editRuleProp} placeholder="status" />
+              </div>
+              <div>
+                <label for="op">Operator</label>
+                <select id="op" bind:value={editRuleOp}>
+                  <option value="equals">equals</option>
+                  <option value="notEquals">not equals</option>
+                  <option value="contains">contains</option>
+                  <option value="exists">exists</option>
+                  <option value="notExists">not exists</option>
+                </select>
+              </div>
+              <div class="flex-1">
+                <label for="val">Expected Value</label>
+                <input id="val" bind:value={editRuleVal} placeholder="completed or true" />
+              </div>
             </div>
           </div>
 
           <div class="form-group">
-            <label for="p-att">Attachment Policy</label>
-            <select id="p-att" bind:value={editAttachmentMode}>
-              <option value="referenced">Referenced Attachments (Images/PDFs linked in notes)</option>
-              <option value="markdown-only">Markdown Only (Do not copy attachments)</option>
-              <option value="explicit">Explicit Eligibility</option>
+            <label for="att-mode">Attachment Strategy</label>
+            <select id="att-mode" bind:value={editAttachmentMode}>
+              <option value="referenced">Referenced only (Copy images/files linked in published notes)</option>
+              <option value="explicit">Explicit only (Copy attachments explicitly inside scope)</option>
+              <option value="markdown-only">Markdown only (Do not copy attachments)</option>
             </select>
           </div>
 
@@ -353,17 +398,14 @@
             <button type="submit" class="btn btn-primary">Save Profile</button>
           </div>
         </form>
-
       {:else if isPreviewing && activePlan}
         <div class="card-header">
           <div>
             <h2>Plan Preview: {selectedProfile?.name}</h2>
-            <p class="subtitle">{activePlan.actions.length} planned operations</p>
+            <span class="subtitle">{activePlan.actions.length} planned operations</span>
           </div>
-          <div class="header-actions">
-            <button class="btn btn-primary" on:click={() => handleApply(activePlan.profile_id)}>
-              Apply Plan Now
-            </button>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary" on:click={() => activePlan && handleApply(activePlan.profile_id)}>Apply Plan Now</button>
             <button class="btn btn-ghost" on:click={() => (isPreviewing = false)}>Close</button>
           </div>
         </div>
@@ -371,64 +413,64 @@
         {#if lastReport}
           <div class="report-banner">
             <strong>Execution Completed:</strong>
-            +{lastReport.created_count} Created,
-            ~{lastReport.updated_count} Updated,
-            -{lastReport.archived_count} Archived,
-            {lastReport.skipped_count} Skipped,
-            <span class="text-danger">{lastReport.conflict_count} Conflicts</span>
+            +{lastReport.created_count} created, ~{lastReport.updated_count} updated,
+            -{lastReport.archived_count} archived, {lastReport.skipped_count} skipped
+            {#if lastReport.conflict_count > 0}
+              <span class="text-danger">&bull; {lastReport.conflict_count} conflicts preserved</span>
+            {/if}
           </div>
         {/if}
 
         <div class="plan-actions-list">
+          {#each activePlan.actions as action}
+            {@const key = getActionKey(action)}
+            <div class="plan-row">
+              <span class="action-tag tag-{key.toLowerCase()}">{key}</span>
+              <span class="action-path">{getActionPath(action)}</span>
+              {#if getActionReason(action)}
+                <span class="action-reason">{getActionReason(action)}</span>
+              {/if}
+            </div>
+          {/each}
           {#if activePlan.actions.length === 0}
-            <div class="empty-state">No matching files or changes needed. All in sync.</div>
-          {:else}
-            {#each activePlan.actions as action}
-              {@const key = getActionKey(action)}
-              {@const path = getActionPath(action)}
-              {@const reason = getActionReason(action)}
-              <div class="plan-row {key.toLowerCase()}">
-                <span class="action-tag tag-{key.toLowerCase()}">{key}</span>
-                <span class="action-path">{path}</span>
-                {#if reason}
-                  <span class="action-reason">{reason}</span>
-                {/if}
-              </div>
-            {/each}
+            <div class="empty-state">
+              <p>Everything is currently up to date. No actions pending.</p>
+            </div>
           {/if}
         </div>
-
       {:else}
         <div class="placeholder-state">
-          <div class="placeholder-icon">📋</div>
+          <div class="placeholder-icon">📂</div>
           <h3>Select a Profile</h3>
-          <p>Click <strong>Preview</strong> on any profile to inspect planned operations, or <strong>Edit</strong> to configure rules.</p>
+          <p>Click "Preview" on any profile to simulate publishing diffs without writing files, or click "+ New Profile" to create a new sync mapping.</p>
         </div>
       {/if}
     </section>
   </div>
 
+  <!-- DIAGNOSTICS MODAL -->
   {#if diagnosticsData}
-    <div class="modal-backdrop" role="presentation" on:click={() => (diagnosticsData = null)} on:keydown={(e) => e.key === 'Escape' && (diagnosticsData = null)}>
+    <div class="modal-backdrop" on:click={() => (diagnosticsData = null)} on:keydown={(e) => e.key === 'Escape' && (diagnosticsData = null)} role="presentation">
       <div class="modal" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
-        <h2>Diagnostics Report</h2>
+        <h2>System Diagnostics</h2>
         <pre>{JSON.stringify(diagnosticsData, null, 2)}</pre>
         <button class="btn btn-secondary" on:click={() => (diagnosticsData = null)}>Close</button>
       </div>
     </div>
   {/if}
 
+  <!-- HISTORY MODAL -->
   {#if isViewingHistory}
-    <div class="modal-backdrop" role="presentation" on:click={() => (isViewingHistory = false)} on:keydown={(e) => e.key === 'Escape' && (isViewingHistory = false)}>
+    <div class="modal-backdrop" on:click={() => (isViewingHistory = false)} on:keydown={(e) => e.key === 'Escape' && (isViewingHistory = false)} role="presentation">
       <div class="modal" role="dialog" aria-modal="true" tabindex="-1" style="max-width: 650px;" on:click|stopPropagation on:keydown|stopPropagation>
-        <h2>Activity & Run History</h2>
+        <h2>Recent Execution History</h2>
         {#if historyList.length === 0}
-          <p class="empty-state">No execution history recorded yet. Run a preview or apply a plan to see activity.</p>
+          <p style="color: var(--text-muted); margin: 20px 0;">No run history entries recorded yet.</p>
         {:else}
-          <div style="max-height: 350px; overflow-y: auto; margin: 12px 0;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+          <div style="max-height: 380px; overflow-y: auto; margin-bottom: 16px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; color: var(--text-primary);">
               <thead>
-                <tr style="border-bottom: 2px solid #e2e8f0; text-align: left;">
+                <tr style="border-bottom: 2px solid var(--border-color); text-align: left; color: var(--text-muted);">
                   <th style="padding: 6px;">Profile</th>
                   <th style="padding: 6px;">Created</th>
                   <th style="padding: 6px;">Updated</th>
@@ -439,13 +481,13 @@
               </thead>
               <tbody>
                 {#each historyList as h}
-                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                  <tr style="border-bottom: 1px solid var(--border-color);">
                     <td style="padding: 6px;"><strong>{h.profileId}</strong></td>
-                    <td style="padding: 6px; color: #15803d;">+{h.created}</td>
-                    <td style="padding: 6px; color: #0284c7;">~{h.updated}</td>
-                    <td style="padding: 6px; color: #b45309;">-{h.archived}</td>
-                    <td style="padding: 6px; color: #dc2626;">{h.conflicts}</td>
-                    <td style="padding: 6px; color: #64748b;">{h.durationMs}ms</td>
+                    <td style="padding: 6px; color: var(--badge-create-text);">+{h.created}</td>
+                    <td style="padding: 6px; color: var(--badge-update-text);">~{h.updated}</td>
+                    <td style="padding: 6px; color: var(--badge-archive-text);">-{h.archived}</td>
+                    <td style="padding: 6px; color: var(--badge-conflict-text);">{h.conflicts}</td>
+                    <td style="padding: 6px; color: var(--text-muted);">{h.durationMs}ms</td>
                   </tr>
                 {/each}
               </tbody>
@@ -459,13 +501,6 @@
 </main>
 
 <style>
-  :global(body) {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f8fafc;
-    color: #1e293b;
-  }
-
   .app-container {
     max-width: 1280px;
     margin: 0 auto;
@@ -478,7 +513,7 @@
     align-items: center;
     margin-bottom: 24px;
     padding-bottom: 16px;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--border-color);
   }
 
   .logo-area {
@@ -490,7 +525,7 @@
   .logo-badge {
     width: 44px;
     height: 44px;
-    background: #4f46e5;
+    background: var(--accent);
     color: white;
     font-weight: 700;
     border-radius: 8px;
@@ -503,17 +538,24 @@
   h1 {
     margin: 0;
     font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-h);
   }
 
   .subtitle {
     margin: 4px 0 0;
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.9rem;
   }
 
   .header-actions {
     display: flex;
     gap: 8px;
+    align-items: center;
+  }
+
+  .theme-toggle-btn {
+    font-weight: 600;
   }
 
   .content-grid {
@@ -522,12 +564,19 @@
     gap: 20px;
   }
 
+  @media (max-width: 900px) {
+    .content-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
   .card {
-    background: white;
+    background: var(--bg-card);
     border-radius: 12px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border-color);
     padding: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    box-shadow: var(--shadow);
+    color: var(--text-primary);
   }
 
   .card-header {
@@ -540,12 +589,14 @@
   .card-header h2 {
     margin: 0;
     font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-h);
   }
 
   .count-tag {
-    background: #e0e7ff;
-    color: #4338ca;
-    padding: 2px 8px;
+    background: var(--accent-light);
+    color: var(--accent-text);
+    padding: 3px 10px;
     border-radius: 12px;
     font-size: 0.8rem;
     font-weight: 600;
@@ -558,18 +609,19 @@
   }
 
   .profile-item {
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--border-color);
+    background: var(--bg-card);
     border-radius: 8px;
     padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    transition: border-color 0.15s;
+    transition: all 0.15s ease-in-out;
   }
 
   .profile-item.active {
-    border-color: #6366f1;
-    background-color: #f5f7ff;
+    border-color: var(--border-active);
+    background-color: var(--bg-card-active);
   }
 
   .profile-title-row {
@@ -581,11 +633,13 @@
   .profile-title-row h3 {
     margin: 0;
     font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--text-h);
   }
 
   .badge-active {
-    background: #dcfce7;
-    color: #15803d;
+    background: var(--badge-create-bg);
+    color: var(--badge-create-text);
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 0.75rem;
@@ -597,25 +651,28 @@
     margin: 6px 0;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 4px;
   }
 
   .path-label {
-    color: #64748b;
-    font-weight: 500;
+    color: var(--text-muted);
+    font-weight: 600;
+    margin-right: 6px;
   }
 
   code {
-    background: #f1f5f9;
-    padding: 2px 4px;
+    background: var(--code-bg);
+    color: var(--code-text);
+    padding: 2px 6px;
     border-radius: 4px;
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 0.8rem;
+    border: 1px solid var(--border-color);
   }
 
   .rule-summary {
     font-size: 0.85rem;
-    color: #475569;
+    color: var(--text-secondary);
   }
 
   .profile-actions {
@@ -631,21 +688,51 @@
     font-weight: 500;
     cursor: pointer;
     border: 1px solid transparent;
+    transition: all 0.15s ease;
   }
 
-  .btn-primary { background: #4f46e5; color: white; }
-  .btn-primary:hover { background: #4338ca; }
+  .btn-primary {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
 
-  .btn-secondary { background: #f1f5f9; color: #334155; border-color: #cbd5e1; }
-  .btn-secondary:hover { background: #e2e8f0; }
+  .btn-secondary {
+    background: var(--btn-sec-bg);
+    color: var(--btn-sec-text);
+    border-color: var(--btn-sec-border);
+  }
+  .btn-secondary:hover {
+    background: var(--btn-sec-hover);
+  }
 
-  .btn-outline { background: white; border-color: #cbd5e1; color: #334155; }
-  .btn-outline:hover { background: #f8fafc; }
+  .btn-outline {
+    background: var(--btn-outline-bg);
+    border-color: var(--btn-outline-border);
+    color: var(--btn-outline-text);
+  }
+  .btn-outline:hover {
+    background: var(--btn-outline-hover);
+  }
 
-  .btn-danger-outline { background: white; border-color: #fca5a5; color: #b91c1c; }
-  .btn-danger-outline:hover { background: #fee2e2; }
+  .btn-danger-outline {
+    background: var(--bg-card);
+    border-color: #fca5a5;
+    color: #ef4444;
+  }
+  .btn-danger-outline:hover {
+    background: var(--badge-conflict-bg);
+  }
 
-  .btn-ghost { background: transparent; color: #64748b; }
+  .btn-ghost {
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .btn-ghost:hover {
+    color: var(--text-primary);
+  }
 
   .form-group {
     display: flex;
@@ -657,13 +744,22 @@
   .form-group label {
     font-size: 0.85rem;
     font-weight: 600;
+    color: var(--text-secondary);
   }
 
   input, select {
     padding: 8px 10px;
-    border: 1px solid #cbd5e1;
+    background: var(--input-bg);
+    color: var(--input-text);
+    border: 1px solid var(--input-border);
     border-radius: 6px;
     font-size: 0.9rem;
+    font-family: inherit;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--accent);
   }
 
   .form-row {
@@ -676,12 +772,12 @@
 
   .hint {
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-muted);
   }
 
   .form-box {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-card-subtle);
+    border: 1px solid var(--border-color);
     padding: 12px;
     border-radius: 8px;
     margin-bottom: 14px;
@@ -690,12 +786,13 @@
   .form-box h3 {
     margin: 0 0 4px;
     font-size: 0.95rem;
+    color: var(--text-h);
   }
 
   .rule-hint {
     margin: 0 0 10px;
     font-size: 0.8rem;
-    color: #64748b;
+    color: var(--text-muted);
   }
 
   .form-actions {
@@ -720,16 +817,17 @@
     padding: 8px 12px;
     border-radius: 6px;
     font-size: 0.85rem;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
+    background: var(--bg-card-subtle);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
   }
 
-  .tag-create { background: #dcfce7; color: #15803d; }
-  .tag-update { background: #e0f2fe; color: #0369a1; }
-  .tag-skip { background: #f1f5f9; color: #64748b; }
-  .tag-archive { background: #fef3c7; color: #b45309; }
-  .tag-conflict { background: #fee2e2; color: #b91c1c; font-weight: 700; }
-  .tag-warn { background: #ffedd5; color: #c2410c; }
+  .tag-create { background: var(--badge-create-bg); color: var(--badge-create-text); }
+  .tag-update { background: var(--badge-update-bg); color: var(--badge-update-text); }
+  .tag-skip { background: var(--badge-skip-bg); color: var(--badge-skip-text); }
+  .tag-archive { background: var(--badge-archive-bg); color: var(--badge-archive-text); }
+  .tag-conflict { background: var(--badge-conflict-bg); color: var(--badge-conflict-text); font-weight: 700; }
+  .tag-warn { background: var(--badge-warn-bg); color: var(--badge-warn-text); }
 
   .action-tag {
     font-size: 0.75rem;
@@ -741,31 +839,36 @@
   }
 
   .action-path {
-    font-family: monospace;
+    font-family: var(--font-mono);
     flex: 1;
+    color: var(--text-primary);
   }
 
   .action-reason {
     font-size: 0.75rem;
-    color: #dc2626;
+    color: var(--badge-conflict-text);
   }
 
   .report-banner {
-    background: #ecfdf5;
-    border: 1px solid #a7f3d0;
-    color: #065f46;
+    background: var(--badge-create-bg);
+    border: 1px solid var(--border-color);
+    color: var(--badge-create-text);
     padding: 10px 14px;
     border-radius: 6px;
     margin-bottom: 14px;
     font-size: 0.85rem;
   }
 
-  .text-danger { color: #dc2626; font-weight: 600; }
+  .text-danger { color: var(--badge-conflict-text); font-weight: 600; }
 
   .placeholder-state {
     text-align: center;
     padding: 60px 20px;
-    color: #64748b;
+    color: var(--text-muted);
+  }
+
+  .placeholder-state h3 {
+    color: var(--text-h);
   }
 
   .placeholder-icon {
@@ -776,7 +879,7 @@
   .empty-state {
     text-align: center;
     padding: 30px;
-    color: #64748b;
+    color: var(--text-muted);
   }
 
   .alert {
@@ -788,31 +891,54 @@
     align-items: center;
   }
 
-  .alert-info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; }
-  .close-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: inherit; }
+  .alert-info {
+    background: var(--badge-update-bg);
+    border: 1px solid var(--border-color);
+    color: var(--badge-update-text);
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 1.2rem;
+    cursor: pointer;
+    color: inherit;
+  }
 
   .modal-backdrop {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.4);
+    background: var(--modal-overlay);
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 999;
   }
 
   .modal {
-    background: white;
+    background: var(--modal-bg);
+    color: var(--text-primary);
     padding: 24px;
     border-radius: 12px;
     max-width: 500px;
     width: 100%;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow);
+  }
+
+  .modal h2 {
+    color: var(--text-h);
+    margin-top: 0;
   }
 
   pre {
-    background: #f1f5f9;
+    background: var(--code-bg);
+    color: var(--code-text);
+    border: 1px solid var(--border-color);
     padding: 12px;
     border-radius: 6px;
     overflow-x: auto;
     font-size: 0.8rem;
+    font-family: var(--font-mono);
   }
 </style>

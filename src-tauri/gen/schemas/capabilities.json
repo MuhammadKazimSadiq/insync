@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"Default capability for Vault Publisher desktop window","local":true,"windows":["main"],"permissions":["core:default","core:window:default","core:webview:default","core:event:default"]}}

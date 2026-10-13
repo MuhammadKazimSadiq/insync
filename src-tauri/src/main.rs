@@ -19,8 +19,14 @@ fn main() {
     let state = AppState::new(default_config_path);
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .manage(state)
         .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+
             let open_item = MenuItem::with_id(app, "open", "Open Vault Publisher", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let tray_menu = Menu::with_items(app, &[&open_item, &quit_item])?;

@@ -12,10 +12,12 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Vault Publisher",
         "width": 1024,
         "height": 720,
-        "resizable": true
+        "resizable": true,
+        "url": "index.html"
       }
     ],
     "security": {
