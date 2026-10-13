@@ -6,3 +6,4 @@ pub mod manifest;
 pub mod metadata;
 pub mod plan;
 pub mod rules;
+pub mod watcher;

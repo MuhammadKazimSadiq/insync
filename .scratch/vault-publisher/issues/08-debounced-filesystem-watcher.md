@@ -5,11 +5,11 @@ An event-driven filesystem watcher for source scopes in `publisher-core`. Watche
 
 **Blocked by:** 07 (Full Reconciliation and Recovery Engine)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] File watcher listens for events across all configured source scopes in a profile
-- [ ] Events are debounced with a configurable quiet window (default 2 seconds) to avoid thrashing during typing
-- [ ] Multiple file edits within the quiet window are batched into a single publishing run
-- [ ] Filters out noise from temporary files, `.obsidian` internal state, and excluded patterns
-- [ ] Triggers a publishing run and reports output through structured callbacks/events
-- [ ] Automated tests verify that bursts of filesystem events trigger only one debounced run after the quiet period
+- [x] File watcher listens for events across all configured source scopes in a profile
+- [x] Events are debounced with a configurable quiet window (default 2 seconds) to avoid thrashing during typing
+- [x] Multiple file edits within the quiet window are batched into a single publishing run
+- [x] Filters out noise from temporary files, `.obsidian` internal state, and excluded patterns
+- [x] Triggers a publishing run and reports output through structured callbacks/events
+- [x] Automated tests verify that bursts of filesystem events trigger only one debounced run after the quiet period
