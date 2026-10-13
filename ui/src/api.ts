@@ -87,6 +87,15 @@ export async function reconcileProfile(profileId: string): Promise<RunReport> {
   };
 }
 
+export async function getRunHistory(): Promise<HistoryEntry[]> {
+  if (isTauri()) {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke('get_run_history');
+  }
+  const data = localStorage.getItem('vault_publisher_history');
+  return data ? JSON.parse(data) : [];
+}
+
 export async function getDiagnostics(): Promise<any> {
   if (isTauri()) {
     const { invoke } = await import('@tauri-apps/api/core');

@@ -45,3 +45,16 @@ export interface RunReport {
   conflict_count: number;
   warn_count: number;
 }
+
+export interface HistoryEntry {
+  id: string;
+  timestamp: string;
+  profileId: string;
+  created: number;
+  updated: number;
+  archived: number;
+  skipped: number;
+  conflicts: number;
+  warnings: number;
+  durationMs: number;
+}

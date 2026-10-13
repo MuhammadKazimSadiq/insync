@@ -1,7 +1,9 @@
 use crate::app_state::AppState;
 use publisher_core::config::ProfileConfig;
+use publisher_core::history::HistoryEntry;
 use publisher_core::plan::{Plan, RunReport};
 use serde_json::{json, Value};
+use std::time::Instant;
 use tauri::State;
 
 #[tauri::command]
@@ -43,30 +45,46 @@ pub fn preview_profile(profile_id: String, state: State<AppState>) -> Result<Pla
 
 #[tauri::command]
 pub fn apply_profile(profile_id: String, state: State<AppState>) -> Result<RunReport, String> {
+    let start = Instant::now();
     let cfg = state.config.lock().map_err(|e| e.to_string())?;
     let plan = state
         .engine
         .preview(&cfg, &profile_id)
         .map_err(|e| e.to_string())?;
-    state.engine.apply(plan).map_err(|e| e.to_string())
+    let report = state.engine.apply(plan).map_err(|e| e.to_string())?;
+    let duration = start.elapsed().as_millis() as u64;
+    state.record_history(HistoryEntry::from_report(&report, duration));
+    Ok(report)
 }
 
 #[tauri::command]
 pub fn reconcile_profile(profile_id: String, state: State<AppState>) -> Result<RunReport, String> {
+    let start = Instant::now();
     let cfg = state.config.lock().map_err(|e| e.to_string())?;
-    state
+    let report = state
         .engine
         .reconcile(&cfg, &profile_id)
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    let duration = start.elapsed().as_millis() as u64;
+    state.record_history(HistoryEntry::from_report(&report, duration));
+    Ok(report)
+}
+
+#[tauri::command]
+pub fn get_run_history(state: State<AppState>) -> Result<Vec<HistoryEntry>, String> {
+    let h = state.history.lock().map_err(|e| e.to_string())?;
+    Ok(h.clone())
 }
 
 #[tauri::command]
 pub fn get_diagnostics(state: State<AppState>) -> Result<Value, String> {
     let cfg = state.config.lock().map_err(|e| e.to_string())?;
+    let history_count = state.history.lock().map(|h| h.len()).unwrap_or(0);
     Ok(json!({
         "version": "0.1.0",
         "profilesCount": cfg.profiles.len(),
         "profiles": cfg.profiles.iter().map(|p| p.id.clone()).collect::<Vec<_>>(),
+        "historyEntriesCount": history_count,
         "configPath": state.config_path.to_string_lossy(),
         "os": std::env::consts::OS,
         "arch": std::env::consts::ARCH

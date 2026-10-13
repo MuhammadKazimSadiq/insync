@@ -1,5 +1,6 @@
 use publisher_core::config::PublisherConfig;
 use publisher_core::engine::PublisherEngine;
+use publisher_core::history::HistoryEntry;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -8,6 +9,7 @@ pub struct AppState {
     pub config_path: PathBuf,
     pub engine: PublisherEngine,
     pub config: Mutex<PublisherConfig>,
+    pub history: Mutex<Vec<HistoryEntry>>,
 }
 
 impl AppState {
@@ -29,6 +31,7 @@ impl AppState {
             config_path,
             engine: PublisherEngine::new(),
             config: Mutex::new(config),
+            history: Mutex::new(vec![]),
         }
     }
 
@@ -40,5 +43,14 @@ impl AppState {
         let json = serde_json::to_string_pretty(&*cfg).map_err(|e| e.to_string())?;
         fs::write(&self.config_path, json).map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    pub fn record_history(&self, entry: HistoryEntry) {
+        if let Ok(mut h) = self.history.lock() {
+            h.insert(0, entry);
+            if h.len() > 100 {
+                h.truncate(100);
+            }
+        }
     }
 }

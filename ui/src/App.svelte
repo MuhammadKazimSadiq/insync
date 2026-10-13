@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { ProfileConfig, Plan, RunReport, RulePredicate, AttachmentMode } from './types';
+  import type { ProfileConfig, Plan, RunReport, RulePredicate, AttachmentMode, HistoryEntry } from './types';
   import {
     listProfiles,
     saveProfile,
@@ -8,6 +8,7 @@
     previewProfile,
     applyProfile,
     reconcileProfile,
+    getRunHistory,
     getDiagnostics,
   } from './api';
 
@@ -15,6 +16,8 @@
   let selectedProfile: ProfileConfig | null = null;
   let isEditing = false;
   let isPreviewing = false;
+  let isViewingHistory = false;
+  let historyList: HistoryEntry[] = [];
   let activePlan: Plan | null = null;
   let lastReport: RunReport | null = null;
   let diagnosticsData: any = null;
@@ -191,6 +194,11 @@
     diagnosticsData = await getDiagnostics();
   }
 
+  async function showHistory() {
+    historyList = await getRunHistory();
+    isViewingHistory = true;
+  }
+
   function exportConfig() {
     const blob = new Blob([JSON.stringify({ version: 1, profiles }, null, 2)], {
       type: 'application/json',
@@ -227,6 +235,7 @@
       </div>
     </div>
     <div class="header-actions">
+      <button class="btn btn-secondary" on:click={showHistory}>Activity Log</button>
       <button class="btn btn-secondary" on:click={exportConfig}>Export Config</button>
       <button class="btn btn-secondary" on:click={showDiagnostics}>Diagnostics</button>
       <button class="btn btn-primary" on:click={startCreate}>+ New Profile</button>
@@ -405,6 +414,45 @@
         <h2>Diagnostics Report</h2>
         <pre>{JSON.stringify(diagnosticsData, null, 2)}</pre>
         <button class="btn btn-secondary" on:click={() => (diagnosticsData = null)}>Close</button>
+      </div>
+    </div>
+  {/if}
+
+  {#if isViewingHistory}
+    <div class="modal-backdrop" role="presentation" on:click={() => (isViewingHistory = false)} on:keydown={(e) => e.key === 'Escape' && (isViewingHistory = false)}>
+      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" style="max-width: 650px;" on:click|stopPropagation on:keydown|stopPropagation>
+        <h2>Activity & Run History</h2>
+        {#if historyList.length === 0}
+          <p class="empty-state">No execution history recorded yet. Run a preview or apply a plan to see activity.</p>
+        {:else}
+          <div style="max-height: 350px; overflow-y: auto; margin: 12px 0;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+              <thead>
+                <tr style="border-bottom: 2px solid #e2e8f0; text-align: left;">
+                  <th style="padding: 6px;">Profile</th>
+                  <th style="padding: 6px;">Created</th>
+                  <th style="padding: 6px;">Updated</th>
+                  <th style="padding: 6px;">Archived</th>
+                  <th style="padding: 6px;">Conflicts</th>
+                  <th style="padding: 6px;">Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each historyList as h}
+                  <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 6px;"><strong>{h.profileId}</strong></td>
+                    <td style="padding: 6px; color: #15803d;">+{h.created}</td>
+                    <td style="padding: 6px; color: #0284c7;">~{h.updated}</td>
+                    <td style="padding: 6px; color: #b45309;">-{h.archived}</td>
+                    <td style="padding: 6px; color: #dc2626;">{h.conflicts}</td>
+                    <td style="padding: 6px; color: #64748b;">{h.durationMs}ms</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        {/if}
+        <button class="btn btn-secondary" on:click={() => (isViewingHistory = false)}>Close</button>
       </div>
     </div>
   {/if}

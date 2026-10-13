@@ -3,6 +3,7 @@ pub mod config;
 pub mod daemon;
 pub mod engine;
 pub mod error;
+pub mod history;
 pub mod manifest;
 pub mod metadata;
 pub mod plan;
