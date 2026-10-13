@@ -19,4 +19,7 @@ pub enum PublisherError {
 
     #[error("Unsafe path: {0}")]
     UnsafePath(String),
+
+    #[error("Lock error: {0}")]
+    LockError(String),
 }

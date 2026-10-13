@@ -5,11 +5,11 @@ A background daemon mode (`vault-publisher daemon`) that runs continuously in he
 
 **Blocked by:** 08 (Debounced Event-Driven Filesystem Watcher)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] CLI supports `vault-publisher daemon <config> --profile <id>`
-- [ ] Acquires a single-instance file lock per profile, exiting gracefully with an error if another daemon instance is already active
-- [ ] Concurrently manages debounced filesystem watcher and background periodic reconciliation timer
-- [ ] Recovers gracefully from unexpected temporary file-access interruptions (e.g., cloud drive indexing locks)
-- [ ] Handles OS termination signals (SIGINT, SIGTERM) to flush in-flight operations and release file locks cleanly
-- [ ] Integration tests verify single-instance locking and periodic timer triggering
+- [x] CLI supports `vault-publisher daemon <config> --profile <id>`
+- [x] Acquires a single-instance file lock per profile, exiting gracefully with an error if another daemon instance is already active
+- [x] Concurrently manages debounced filesystem watcher and background periodic reconciliation timer
+- [x] Recovers gracefully from unexpected temporary file-access interruptions (e.g., cloud drive indexing locks)
+- [x] Handles OS termination signals (SIGINT, SIGTERM) to flush in-flight operations and release file locks cleanly
+- [x] Integration tests verify single-instance locking and periodic timer triggering

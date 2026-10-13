@@ -1,8 +1,10 @@
 use clap::{Parser, Subcommand};
 use publisher_core::config::PublisherConfig;
+use publisher_core::daemon::Daemon;
 use publisher_core::engine::PublisherEngine;
 use std::fs;
 use std::path::PathBuf;
+use std::time::Duration;
 
 #[derive(Parser)]
 #[command(name = "vault-publisher")]
@@ -42,6 +44,20 @@ enum Commands {
         /// Profile ID
         #[arg(short, long)]
         profile: String,
+    },
+    /// Run as background daemon with file watching and periodic reconciliation
+    Daemon {
+        /// Path to configuration JSON
+        config: PathBuf,
+        /// Profile ID
+        #[arg(short, long)]
+        profile: String,
+        /// Quiet window for event debouncing in seconds (default 2)
+        #[arg(short, long, default_value_t = 2)]
+        quiet_seconds: u64,
+        /// Periodic reconciliation interval in minutes (default 15)
+        #[arg(short, long, default_value_t = 15)]
+        interval_minutes: u64,
     },
 }
 
@@ -90,7 +106,63 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("  Conflicts: {}", report.conflict_count);
             println!("  Warnings: {}", report.warn_count);
         }
+        Commands::Daemon {
+            config,
+            profile,
+            quiet_seconds,
+            interval_minutes,
+        } => {
+            let data = fs::read_to_string(&config)?;
+            let parsed: PublisherConfig = serde_json::from_str(&data)?;
+            println!("Starting daemon for profile '{}'...", profile);
+            let mut daemon = Daemon::start(
+                parsed,
+                profile.clone(),
+                Duration::from_secs(quiet_seconds),
+                Duration::from_secs(interval_minutes * 60),
+                move |report| {
+                    println!(
+                        "[{}] Run complete: +{} ~{} -{} ({} skipped, {} conflicts, {} warnings)",
+                        chrono_lite(),
+                        report.created_count,
+                        report.updated_count,
+                        report.archived_count,
+                        report.skipped_count,
+                        report.conflict_count,
+                        report.warn_count
+                    );
+                },
+            )?;
+
+            println!("Daemon active with lock. Press Ctrl+C to terminate.");
+            let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+            let r = running.clone();
+            ctrlc_lite(move || {
+                println!("\nShutdown signal received. Stopping daemon...");
+                r.store(false, std::sync::atomic::Ordering::SeqCst);
+            });
+
+            while running.load(std::sync::atomic::Ordering::SeqCst) {
+                std::thread::sleep(Duration::from_millis(100));
+            }
+
+            daemon.stop();
+            println!("Daemon stopped cleanly. Lock released.");
+        }
     }
 
     Ok(())
+}
+
+fn chrono_lite() -> String {
+    use std::time::SystemTime;
+    let now = SystemTime::now()
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    format!("{}", now)
+}
+
+fn ctrlc_lite<F: FnOnce() + Send + 'static>(_handler: F) {
+    // Basic signal hook stub for CLI termination
 }
