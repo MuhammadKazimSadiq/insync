@@ -2,5 +2,6 @@
 members = [
     "crates/publisher-core",
     "crates/vault-publisher-cli",
+    "src-tauri",
 ]
 resolver = "2"
