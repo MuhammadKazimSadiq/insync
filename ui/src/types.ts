@@ -20,6 +20,7 @@ export interface ProfileConfig {
   attachments?: {
     mode: AttachmentMode;
   } | null;
+  autoSync?: boolean;
 }
 
 export type PlanAction =

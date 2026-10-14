@@ -23,6 +23,7 @@ fn test_daemon_single_instance_lock_and_timer() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "daemon-profile".to_string(),
+            auto_sync: false,
             name: "Daemon Profile".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: dest_dir.path().to_path_buf(),

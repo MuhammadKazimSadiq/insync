@@ -25,6 +25,7 @@ fn test_retention_and_safe_archiving() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "archive-profile".to_string(),
+            auto_sync: false,
             name: "Archive Profile".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: dest_dir.path().to_path_buf(),

@@ -22,6 +22,7 @@ fn test_destination_conflict_detection_and_preservation() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "conflict-profile".to_string(),
+            auto_sync: false,
             name: "Conflict Profile".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: dest_dir.path().to_path_buf(),

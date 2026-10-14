@@ -21,6 +21,7 @@ fn test_reconciliation_and_idempotency() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "recon-profile".to_string(),
+            auto_sync: false,
             name: "Reconciliation Profile".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: dest_dir.path().to_path_buf(),

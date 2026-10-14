@@ -24,6 +24,24 @@ pub struct ProfileConfig {
     pub rules: Option<RuleGroup>,
     #[serde(default)]
     pub attachments: Option<AttachmentConfig>,
+    #[serde(default)]
+    pub auto_sync: bool,
+}
+
+impl Default for ProfileConfig {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            name: String::new(),
+            source_vault: PathBuf::new(),
+            destination_vault: PathBuf::new(),
+            scopes: Vec::new(),
+            excludes: Vec::new(),
+            rules: None,
+            attachments: None,
+            auto_sync: false,
+        }
+    }
 }
 
 #[cfg(test)]

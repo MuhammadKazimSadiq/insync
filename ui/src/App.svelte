@@ -57,6 +57,7 @@
   let editScopes = '';
   let editExcludes = '';
   let editAttachmentMode: AttachmentMode = 'referenced';
+  let editAutoSync = false;
   let editRules: Array<{ property: string; operator: any; value: string }> = [];
 
   onMount(async () => {
@@ -113,6 +114,7 @@
     editScopes = '';
     editExcludes = '.git, _private, *.draft.md';
     editAttachmentMode = 'explicit';
+    editAutoSync = false;
     editRules = [];
     isEditing = true;
     isPreviewing = false;
@@ -126,6 +128,7 @@
     editScopes = p.scopes.join(', ');
     editExcludes = (p.excludes || []).join(', ');
     editAttachmentMode = p.attachments?.mode || 'explicit';
+    editAutoSync = !!p.autoSync;
 
     let rulesList: RulePredicate[] = [];
     if (p.rules) {
@@ -209,6 +212,7 @@
       excludes: editExcludes.split(',').map((s) => s.trim()).filter(Boolean),
       rules: mappedRules.length > 0 ? { all: mappedRules } : null,
       attachments: { mode: editAttachmentMode },
+      autoSync: editAutoSync,
     };
 
     try {
@@ -340,37 +344,38 @@
     </div>
 
     <div class="header-actions">
-      <!-- Theme Switcher -->
-      <button class="btn btn-secondary theme-toggle-btn" on:click={toggleTheme} title="Switch Light / Dark Theme">
-        {#if currentTheme === 'dark'}
-          <Sun size={15} />
-          <span>Light</span>
-        {:else}
-          <Moon size={15} />
-          <span>Dark</span>
-        {/if}
-      </button>
+      <!-- Desktop Utility Toolbar Group -->
+      <div class="toolbar-group">
+        <!-- Theme Switcher (Clean Icon) -->
+        <button class="btn btn-secondary btn-icon" on:click={toggleTheme} title="Switch to {currentTheme === 'dark' ? 'Light' : 'Dark'} theme">
+          {#if currentTheme === 'dark'}
+            <Sun size={15} />
+          {:else}
+            <Moon size={15} />
+          {/if}
+        </button>
 
-      <!-- Activity Log -->
-      <button class="btn btn-secondary" on:click={showHistory} title="View recent runs">
-        <History size={15} />
-        <span>Activity Log</span>
-      </button>
+        <!-- Activity Log -->
+        <button class="btn btn-secondary" on:click={showHistory} title="View Activity Log and run history">
+          <History size={15} />
+          <span class="btn-label-responsive">History</span>
+        </button>
 
-      <!-- Export Config -->
-      <button class="btn btn-secondary" on:click={handleExportConfig} title="Export configuration to file">
-        <Download size={15} />
-        <span>Export Config</span>
-      </button>
+        <!-- Export Config -->
+        <button class="btn btn-secondary" on:click={handleExportConfig} title="Export configuration to JSON file">
+          <Download size={15} />
+          <span class="btn-label-responsive">Export</span>
+        </button>
 
-      <!-- Diagnostics -->
-      <button class="btn btn-secondary" on:click={showDiagnostics} title="View system diagnostics">
-        <Activity size={15} />
-        <span>Diagnostics</span>
-      </button>
+        <!-- Diagnostics -->
+        <button class="btn btn-secondary" on:click={showDiagnostics} title="View system diagnostics report">
+          <Activity size={15} />
+          <span class="btn-label-responsive">Diagnostics</span>
+        </button>
+      </div>
 
-      <!-- New Synced Folder -->
-      <button class="btn btn-primary" on:click={startCreate}>
+      <!-- Primary Action: New Synced Folder -->
+      <button class="btn btn-primary" on:click={startCreate} title="Create a new synced folder">
         <Plus size={16} strokeWidth={2.5} />
         <span>New Synced Folder</span>
       </button>
@@ -407,7 +412,16 @@
             <div class="profile-info">
               <div class="profile-title-row">
                 <h3>{p.name}</h3>
-                <span class="badge badge-active">Active</span>
+                <div class="flex items-center gap-1.5">
+                  {#if p.autoSync}
+                    <span class="badge badge-autosync" title="Watching and syncing automatically in background">
+                      <span class="pulse-dot"></span> Auto-Sync
+                    </span>
+                  {:else}
+                    <span class="badge badge-manual" title="Manual sync only">Manual</span>
+                  {/if}
+                  <span class="badge badge-active">Active</span>
+                </div>
               </div>
               <div class="path-details">
                 <div class="flex items-center gap-1.5 overflow-hidden text-ellipsis">
@@ -576,6 +590,20 @@
               </select>
             </div>
             <span class="hint">Choose whether all files or only markdown-referenced assets are synced to the destination.</span>
+          </div>
+
+          <!-- Background Auto-Sync Toggle -->
+          <div class="form-group">
+            <div class="toggle-card">
+              <div class="toggle-text">
+                <div class="toggle-title">Automatic Background Sync</div>
+                <div class="toggle-subtitle">Continuously watch Source Folder and automatically sync files in the background whenever edits occur (with 2s quiet period).</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" bind:checked={editAutoSync} />
+                <span class="slider"></span>
+              </label>
+            </div>
           </div>
 
           <div class="form-actions">
@@ -771,10 +799,89 @@
     gap: 20px;
   }
 
-  @media (max-width: 900px) {
+  @media (max-width: 960px) {
     .content-grid {
       grid-template-columns: 1fr;
     }
+    .btn-label-responsive {
+      display: none;
+    }
+    .toolbar-group .btn {
+      padding: 0 8px;
+    }
+    .subtitle {
+      display: none;
+    }
+  }
+
+  /* Toggle Card & Switch */
+  .toggle-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 12px 14px;
+    margin-top: 4px;
+  }
+
+  .toggle-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-h);
+  }
+
+  .toggle-subtitle {
+    font-size: 0.74rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 38px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: var(--border-color);
+    transition: 0.2s;
+    border-radius: 22px;
+  }
+
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: 0.2s;
+    border-radius: 50%;
+  }
+
+  input:checked + .slider {
+    background-color: var(--accent);
+  }
+
+  input:checked + .slider:before {
+    transform: translateX(16px);
   }
 
   /* Sleek Cards */
@@ -855,6 +962,38 @@
     font-weight: 600;
   }
 
+  .badge-autosync {
+    background: rgba(163, 190, 140, 0.15);
+    color: #a3be8c;
+    border: 1px solid rgba(163, 190, 140, 0.35);
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: #a3be8c;
+    box-shadow: 0 0 6px #a3be8c;
+    display: inline-block;
+  }
+
+  .badge-manual {
+    background: var(--btn-sec-bg);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    font-size: 0.72rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+  }
+
   .path-details {
     font-size: 0.82rem;
     margin: 6px 0;
@@ -891,19 +1030,65 @@
     flex-wrap: wrap;
   }
 
+  .profile-actions .btn {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 0.78rem;
+  }
+
+  /* Toolbar Group (Clean Desktop Grouping) */
+  .toolbar-group {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    background: var(--bg-card);
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+  }
+
+  .toolbar-group .btn {
+    height: 28px;
+    padding: 0 9px;
+    font-size: 0.78rem;
+    border: none;
+    background: transparent;
+  }
+
+  .toolbar-group .btn:hover {
+    background: var(--btn-sec-hover);
+    color: var(--text-h);
+  }
+
+  .toolbar-group .btn-icon {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+  }
+
   /* Sleek Buttons (shadcn style) */
   .btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     gap: 6px;
-    padding: 7px 13px;
+    height: 34px;
+    padding: 0 13px;
     border-radius: 6px;
     font-size: 0.82rem;
     font-weight: 500;
     cursor: pointer;
     border: 1px solid transparent;
     transition: all 0.15s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+
+  .btn-icon {
+    width: 34px;
+    height: 34px;
+    padding: 0;
   }
 
   .btn-sm {

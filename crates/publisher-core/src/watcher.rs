@@ -91,10 +91,19 @@ impl ScopeWatcher {
             Config::default(),
         )?;
 
-        for scope in &profile.scopes {
-            let scope_path = profile.source_vault.join(scope);
-            if scope_path.exists() {
-                let canon = scope_path.canonicalize().unwrap_or(scope_path);
+        let paths_to_watch: Vec<std::path::PathBuf> = if profile.scopes.is_empty() {
+            vec![profile.source_vault.clone()]
+        } else {
+            profile
+                .scopes
+                .iter()
+                .map(|s| profile.source_vault.join(s))
+                .collect()
+        };
+
+        for path in paths_to_watch {
+            if path.exists() {
+                let canon = path.canonicalize().unwrap_or(path);
                 watcher.watch(&canon, RecursiveMode::Recursive)?;
             }
         }

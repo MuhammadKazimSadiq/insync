@@ -63,6 +63,7 @@ fn test_debounced_watcher_filesystem_integration() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "watch-profile".to_string(),
+            auto_sync: false,
             name: "Watch Profile".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: dest_dir.path().to_path_buf(),

@@ -26,6 +26,7 @@ fn test_minimal_publisher_tracer_bullet() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "test-profile".to_string(),
+            auto_sync: false,
             name: "Test Profile".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: dest_dir.path().to_path_buf(),
@@ -87,6 +88,7 @@ fn test_general_folder_sync_all_files_no_rules_empty_scopes() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "general-sync".to_string(),
+            auto_sync: false,
             name: "General Sync".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: dest_dir.path().to_path_buf(),

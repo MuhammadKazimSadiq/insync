@@ -119,6 +119,7 @@ fn test_path_safety_and_exclusions() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "bad-profile".to_string(),
+            auto_sync: false,
             name: "Bad Profile".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: source_dir.path().to_path_buf(),
@@ -143,6 +144,7 @@ fn test_path_safety_and_exclusions() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "bad-nested".to_string(),
+            auto_sync: false,
             name: "Bad Nested".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: nested_dest,
@@ -177,6 +179,7 @@ fn test_path_safety_and_exclusions() {
         version: 1,
         profiles: vec![ProfileConfig {
             id: "safe-profile".to_string(),
+            auto_sync: false,
             name: "Safe Profile".to_string(),
             source_vault: source_dir.path().to_path_buf(),
             destination_vault: dest_dir.path().to_path_buf(),

@@ -22,7 +22,9 @@ pub fn save_profile(profile: ProfileConfig, state: State<AppState>) -> Result<()
             cfg.profiles.push(profile);
         }
     }
-    state.save_config()
+    state.save_config()?;
+    state.update_watchers();
+    Ok(())
 }
 
 #[tauri::command]
@@ -31,7 +33,9 @@ pub fn delete_profile(profile_id: String, state: State<AppState>) -> Result<(), 
         let mut cfg = state.config.lock().map_err(|e| e.to_string())?;
         cfg.profiles.retain(|p| p.id != profile_id);
     }
-    state.save_config()
+    state.save_config()?;
+    state.update_watchers();
+    Ok(())
 }
 
 #[tauri::command]

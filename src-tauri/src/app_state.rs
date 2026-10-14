@@ -1,15 +1,19 @@
 use publisher_core::config::PublisherConfig;
 use publisher_core::engine::PublisherEngine;
 use publisher_core::history::HistoryEntry;
+use publisher_core::watcher::ScopeWatcher;
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
+use std::time::Duration;
 
 pub struct AppState {
     pub config_path: PathBuf,
     pub engine: PublisherEngine,
     pub config: Mutex<PublisherConfig>,
     pub history: Mutex<Vec<HistoryEntry>>,
+    pub watchers: Mutex<HashMap<String, ScopeWatcher>>,
 }
 
 impl AppState {
@@ -27,11 +31,59 @@ impl AppState {
             }
         };
 
-        Self {
+        let state = Self {
             config_path,
             engine: PublisherEngine::new(),
             config: Mutex::new(config),
             history: Mutex::new(vec![]),
+            watchers: Mutex::new(HashMap::new()),
+        };
+        state.update_watchers();
+        state
+    }
+
+    pub fn update_watchers(&self) {
+        let config = match self.config.lock() {
+            Ok(c) => c.clone(),
+            Err(_) => return,
+        };
+
+        let mut watchers = match self.watchers.lock() {
+            Ok(w) => w,
+            Err(_) => return,
+        };
+
+        let active_ids: Vec<String> = config
+            .profiles
+            .iter()
+            .filter(|p| p.auto_sync)
+            .map(|p| p.id.clone())
+            .collect();
+
+        watchers.retain(|id, watcher| {
+            if !active_ids.contains(id) {
+                watcher.stop();
+                false
+            } else {
+                true
+            }
+        });
+
+        for profile in &config.profiles {
+            if profile.auto_sync && !watchers.contains_key(&profile.id) {
+                let cfg_clone = config.clone();
+                let pid = profile.id.clone();
+                if let Ok(w) = ScopeWatcher::start(
+                    cfg_clone,
+                    pid.clone(),
+                    Duration::from_secs(2),
+                    move |_report| {
+                        // Background sync complete
+                    },
+                ) {
+                    watchers.insert(pid, w);
+                }
+            }
         }
     }
 
@@ -72,6 +124,7 @@ mod tests {
 
         let profile = ProfileConfig {
             id: "sync-test-1".to_string(),
+            auto_sync: false,
             name: "Work Notes Sync".to_string(),
             source_vault: dir.join("source"),
             destination_vault: dir.join("dest"),
