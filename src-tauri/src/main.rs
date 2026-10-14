@@ -32,6 +32,22 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .manage(state)
         .setup(|app| {
+            #[cfg(target_os = "macos")]
+            {
+                use objc2::{AllocAnyThread, MainThreadMarker};
+                use objc2_app_kit::{NSApplication, NSImage};
+                use objc2_foundation::NSData;
+
+                let mtm = unsafe { MainThreadMarker::new_unchecked() };
+                let ns_app = NSApplication::sharedApplication(mtm);
+                let icon_bytes = include_bytes!("../icons/icon.png");
+                let data = NSData::with_bytes(icon_bytes);
+                let app_icon = NSImage::initWithData(NSImage::alloc(), &data);
+                if let Some(ref icon) = app_icon {
+                    unsafe { ns_app.setApplicationIconImage(Some(icon)) };
+                }
+            }
+
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
@@ -41,7 +57,13 @@ fn main() {
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let tray_menu = Menu::with_items(app, &[&open_item, &quit_item])?;
 
+            let tray_icon = tauri::image::Image::from_bytes(include_bytes!("../icons/tray.png"))?;
+
             let _tray = TrayIconBuilder::new()
+                .icon(tray_icon)
+                .icon_as_template(true)
+                .tooltip("InSync")
+                .show_menu_on_left_click(true)
                 .menu(&tray_menu)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => {
