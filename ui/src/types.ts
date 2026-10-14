@@ -15,7 +15,8 @@ export interface ProfileConfig {
   excludes: string[];
   rules?: {
     all?: RulePredicate[];
-  } | null;
+    any?: RulePredicate[];
+  } | RulePredicate[] | null;
   attachments?: {
     mode: AttachmentMode;
   } | null;

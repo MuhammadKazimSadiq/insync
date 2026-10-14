@@ -86,13 +86,13 @@ count: 42
     assert!(evaluate_rule_group(&RuleGroup::Predicate(in_array), &yaml_val));
 
     // 6. Nested All + Any
-    let nested_group = RuleGroup::All(vec![
+    let nested_group = RuleGroup::all(vec![
         RuleGroup::Predicate(RulePredicate {
             property: "status".to_string(),
             operator: Operator::Equals,
             value: Some(json!("completed")),
         }),
-        RuleGroup::Any(vec![
+        RuleGroup::any(vec![
             RuleGroup::Predicate(RulePredicate {
                 property: "visibility".to_string(),
                 operator: Operator::Equals,

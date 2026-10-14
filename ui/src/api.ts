@@ -1,17 +1,19 @@
+import { isTauri as checkTauri, invoke } from '@tauri-apps/api/core';
 import type { ProfileConfig, Plan, RunReport, HistoryEntry } from './types';
 
-function isTauri(): boolean {
-  return typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+export function isTauri(): boolean {
+  if (typeof window === 'undefined') return false;
+  return checkTauri() || '__TAURI_INTERNALS__' in window;
 }
 
 export async function listProfiles(): Promise<ProfileConfig[]> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       const res = await invoke<ProfileConfig[]>('list_profiles');
       return res;
     } catch (err) {
-      console.warn('[InSync] Tauri list_profiles failed, falling back to local storage:', err);
+      console.error('[InSync] Tauri list_profiles failed:', err);
+      throw err;
     }
   }
   const data = localStorage.getItem('insync_synced_folders') || localStorage.getItem('vault_publisher_profiles');
@@ -21,11 +23,11 @@ export async function listProfiles(): Promise<ProfileConfig[]> {
 export async function saveProfile(profile: ProfileConfig): Promise<void> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       await invoke('save_profile', { profile });
       return;
     } catch (err) {
-      console.warn('[InSync] Tauri save_profile failed, saving locally:', err);
+      console.error('[InSync] Tauri save_profile failed:', err);
+      throw err;
     }
   }
   const profiles = await listProfiles();
@@ -41,11 +43,11 @@ export async function saveProfile(profile: ProfileConfig): Promise<void> {
 export async function deleteProfile(profileId: string): Promise<void> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       await invoke('delete_profile', { profileId });
       return;
     } catch (err) {
-      console.warn('[InSync] Tauri delete_profile failed, deleting locally:', err);
+      console.error('[InSync] Tauri delete_profile failed:', err);
+      throw err;
     }
   }
   let profiles = await listProfiles();
@@ -56,10 +58,10 @@ export async function deleteProfile(profileId: string): Promise<void> {
 export async function previewProfile(profileId: string): Promise<Plan> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       return await invoke<Plan>('preview_profile', { profileId });
     } catch (err) {
-      console.warn('[InSync] Tauri preview_profile failed, using preview fallback:', err);
+      console.error('[InSync] Tauri preview_profile failed:', err);
+      throw err;
     }
   }
   return {
@@ -77,10 +79,10 @@ export async function previewProfile(profileId: string): Promise<Plan> {
 export async function applyProfile(profileId: string): Promise<RunReport> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       return await invoke<RunReport>('apply_profile', { profileId });
     } catch (err) {
-      console.warn('[InSync] Tauri apply_profile failed, using mock report:', err);
+      console.error('[InSync] Tauri apply_profile failed:', err);
+      throw err;
     }
   }
   return {
@@ -97,10 +99,10 @@ export async function applyProfile(profileId: string): Promise<RunReport> {
 export async function reconcileProfile(profileId: string): Promise<RunReport> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       return await invoke<RunReport>('reconcile_profile', { profileId });
     } catch (err) {
-      console.warn('[InSync] Tauri reconcile_profile failed, using mock report:', err);
+      console.error('[InSync] Tauri reconcile_profile failed:', err);
+      throw err;
     }
   }
   return {
@@ -117,10 +119,10 @@ export async function reconcileProfile(profileId: string): Promise<RunReport> {
 export async function getRunHistory(): Promise<HistoryEntry[]> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       return await invoke<HistoryEntry[]>('get_run_history');
     } catch (err) {
-      console.warn('[InSync] Tauri get_run_history failed, reading local storage:', err);
+      console.error('[InSync] Tauri get_run_history failed:', err);
+      return [];
     }
   }
   const data = localStorage.getItem('insync_history');
@@ -130,10 +132,9 @@ export async function getRunHistory(): Promise<HistoryEntry[]> {
 export async function getDiagnostics(): Promise<any> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       return await invoke('get_diagnostics');
     } catch (err) {
-      console.warn('[InSync] Tauri get_diagnostics failed, using browser diagnostics:', err);
+      console.error('[InSync] Tauri get_diagnostics failed, using fallback:', err);
     }
   }
   return {
@@ -148,11 +149,10 @@ export async function getDiagnostics(): Promise<any> {
 export async function selectFolder(): Promise<string | null> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       const selected = await invoke<string | null>('select_folder');
       return selected;
     } catch (err) {
-      console.warn('[InSync] Tauri select_folder failed:', err);
+      console.error('[InSync] Tauri select_folder failed:', err);
     }
   }
   return prompt('Enter directory path:') || null;
@@ -161,11 +161,10 @@ export async function selectFolder(): Promise<string | null> {
 export async function exportConfigFile(): Promise<string | null> {
   if (isTauri()) {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
       const savedPath = await invoke<string | null>('export_config_file');
       return savedPath;
     } catch (err) {
-      console.warn('[InSync] Tauri export_config_file failed:', err);
+      console.error('[InSync] Tauri export_config_file failed:', err);
     }
   }
   const profiles = await listProfiles();

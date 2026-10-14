@@ -54,3 +54,59 @@ impl AppState {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use publisher_core::config::{ProfileConfig, RuleGroup, RulePredicate};
+    use publisher_core::rules::Operator;
+    use serde_json::json;
+
+    #[test]
+    fn test_app_state_save_and_reload_with_rules() {
+        let dir = std::env::temp_dir().join(format!("insync-test-{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
+        let _ = fs::create_dir_all(&dir);
+        let config_file = dir.join("config.json");
+
+        let state = AppState::new(config_file.clone());
+
+        let profile = ProfileConfig {
+            id: "sync-test-1".to_string(),
+            name: "Work Notes Sync".to_string(),
+            source_vault: dir.join("source"),
+            destination_vault: dir.join("dest"),
+            scopes: vec!["Notes".to_string()],
+            excludes: vec![".git".to_string()],
+            rules: Some(RuleGroup::all(vec![RuleGroup::Predicate(RulePredicate {
+                property: "status".to_string(),
+                operator: Operator::Equals,
+                value: Some(json!("completed")),
+            })])),
+            attachments: None,
+        };
+
+        {
+            let mut cfg = state.config.lock().unwrap();
+            cfg.profiles.push(profile.clone());
+        }
+
+        state.save_config().expect("save config");
+
+        // Reload state from disk
+        let reloaded_state = AppState::new(config_file);
+        let reloaded_cfg = reloaded_state.config.lock().unwrap();
+
+        assert_eq!(reloaded_cfg.profiles.len(), 1);
+        assert_eq!(reloaded_cfg.profiles[0].id, "sync-test-1");
+        assert_eq!(reloaded_cfg.profiles[0].name, "Work Notes Sync");
+        assert!(reloaded_cfg.profiles[0].rules.is_some());
+        match reloaded_cfg.profiles[0].rules.as_ref().unwrap() {
+            RuleGroup::All { all } => {
+                assert_eq!(all.len(), 1);
+            }
+            other => panic!("expected RuleGroup::All, got {:?}", other),
+        }
+
+        let _ = fs::remove_dir_all(&dir);
+    }
+}

@@ -82,32 +82,22 @@
     applyTheme(currentTheme === 'light' ? 'dark' : 'light');
   }
 
+  function getRuleCount(rules: any): number {
+    if (!rules) return 0;
+    if (Array.isArray(rules)) return rules.length;
+    if (Array.isArray(rules.all)) return rules.all.length;
+    if (Array.isArray(rules.any)) return rules.any.length;
+    if (rules.property) return 1;
+    return 0;
+  }
+
   async function refreshProfiles() {
     loading = true;
     try {
       profiles = await listProfiles();
-      if (profiles.length === 0) {
-        // Seed an initial demo synced folder if empty
-        const initial: ProfileConfig = {
-          id: 'shared-notes',
-          name: 'Shared Documents',
-          sourceVault: '/Users/documents/Source',
-          destinationVault: '/Users/documents/Destination',
-          scopes: ['Documents', 'Projects/Shared'],
-          excludes: ['.git', '_private', '*.draft.md'],
-          rules: {
-            all: [
-              { property: 'status', operator: 'equals', value: 'completed' },
-              { property: 'share', operator: 'equals', value: true },
-            ],
-          },
-          attachments: { mode: 'referenced' },
-        };
-        await saveProfile(initial);
-        profiles = await listProfiles();
-      }
     } catch (e: any) {
-      message = 'Failed to load synced folders: ' + e;
+      console.error('[InSync] Failed to load profiles:', e);
+      message = 'Failed to load synced folders: ' + (e?.message || e);
     } finally {
       loading = false;
     }
@@ -115,7 +105,7 @@
 
   function startCreate() {
     editId = 'sync-' + Date.now();
-    editName = 'New Synced Folder';
+    editName = '';
     editSource = '';
     editDest = '';
     editScopes = '';
@@ -137,9 +127,21 @@
     editExcludes = (p.excludes || []).join(', ');
     editAttachmentMode = p.attachments?.mode || 'referenced';
 
-    const rulesFromProfile = p.rules?.all || [];
-    if (rulesFromProfile.length > 0) {
-      editRules = rulesFromProfile.map((r) => ({
+    let rulesList: RulePredicate[] = [];
+    if (p.rules) {
+      if (Array.isArray(p.rules)) {
+        rulesList = p.rules;
+      } else if (Array.isArray((p.rules as any).all)) {
+        rulesList = (p.rules as any).all;
+      } else if (Array.isArray((p.rules as any).any)) {
+        rulesList = (p.rules as any).any;
+      } else if ((p.rules as any).property) {
+        rulesList = [p.rules as any];
+      }
+    }
+
+    if (rulesList.length > 0) {
+      editRules = rulesList.map((r) => ({
         property: r.property || 'status',
         operator: r.operator || 'equals',
         value: r.value !== undefined ? String(r.value) : '',
@@ -210,19 +212,37 @@
     };
 
     try {
+      loading = true;
       await saveProfile(profileToSave);
       isEditing = false;
       message = `Saved synced folder '${profileToSave.name}' successfully.`;
       await refreshProfiles();
+      selectedProfile = profiles.find((p) => p.id === profileToSave.id) || profileToSave;
     } catch (e: any) {
-      alert('Error saving synced folder: ' + e);
+      console.error('[InSync] Save error:', e);
+      alert('Error saving synced folder: ' + (e?.message || e));
+    } finally {
+      loading = false;
     }
   }
 
   async function handleDelete(id: string) {
     if (confirm(`Are you sure you want to delete synced folder '${id}'?`)) {
-      await deleteProfile(id);
-      await refreshProfiles();
+      try {
+        loading = true;
+        await deleteProfile(id);
+        if (selectedProfile?.id === id) {
+          selectedProfile = null;
+          isPreviewing = false;
+        }
+        message = `Deleted synced folder '${id}'.`;
+        await refreshProfiles();
+      } catch (e: any) {
+        console.error('[InSync] Delete error:', e);
+        alert('Error deleting synced folder: ' + (e?.message || e));
+      } finally {
+        loading = false;
+      }
     }
   }
 
@@ -400,8 +420,8 @@
                 </div>
               </div>
               <div class="rule-summary">
-                {#if p.rules?.all && p.rules.all.length > 0}
-                  <span><strong>Filter Rules:</strong> {p.rules.all.length} rule{p.rules.all.length > 1 ? 's' : ''}</span>
+                {#if getRuleCount(p.rules) > 0}
+                  <span><strong>Filter Rules:</strong> {getRuleCount(p.rules)} rule{getRuleCount(p.rules) > 1 ? 's' : ''}</span>
                 {:else}
                   <span><strong>Filter Rules:</strong> None (all files in scope)</span>
                 {/if}
