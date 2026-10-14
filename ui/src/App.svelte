@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import logoSvg from './assets/logo.svg';
   import {
     Folder,
     FolderSync,
@@ -327,7 +328,7 @@
   <header class="header">
     <div class="logo-area">
       <div class="logo-badge">
-        <img src="/logo.svg" alt="InSync" class="w-10 h-10 rounded-xl" />
+        <img src={logoSvg} alt="InSync" class="w-10 h-10" />
       </div>
       <div>
         <div class="flex items-center gap-2">

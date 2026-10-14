@@ -8,15 +8,15 @@
 
     <!-- Squircle Border Highlight -->
     <linearGradient id="borderGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-      <stop offset="0%" stop-color="#88C0D0" stop-opacity="0.7" />
-      <stop offset="40%" stop-color="#4C566A" stop-opacity="0.4" />
-      <stop offset="100%" stop-color="#2E3440" stop-opacity="0.1" />
+      <stop offset="0%" stop-color="#88C0D0" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#4C566A" stop-opacity="0.5" />
+      <stop offset="100%" stop-color="#2E3440" stop-opacity="0.2" />
     </linearGradient>
 
-    <!-- Upper Flow: Frost Teal -> Ice Cyan -> Snow -->
+    <!-- Upper Flow: Frost Teal -> Ice Cyan -> Snow White -->
     <linearGradient id="upperSyncGrad" x1="0%" y1="0%" x2="100%" y2="80%">
-      <stop offset="0%" stop-color="#8FBCBB" />
-      <stop offset="45%" stop-color="#88C0D0" />
+      <stop offset="0%" stop-color="#88C0D0" />
+      <stop offset="50%" stop-color="#8FBCBB" />
       <stop offset="100%" stop-color="#ECEFF4" />
     </linearGradient>
 
@@ -28,43 +28,40 @@
     </linearGradient>
   </defs>
 
-  <!-- Base Apple-style Squircle (Crisp, High Contrast) -->
-  <rect x="36" y="36" width="440" height="440" rx="108" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="3" />
-
-  <!-- Center Content -->
-  
+  <!-- Base Apple-style Squircle with Crisp Border -->
+  <rect x="32" y="32" width="448" height="448" rx="104" fill="url(#bgGrad)" stroke="url(#borderGrad)" stroke-width="3.5" />
 
   <!-- TOP-RIGHT SYNC ARROW (Clockwise upper arc) -->
   <g>
     <!-- Sweeping Arc -->
-    <path d="M 128.2 209.5 A 136 136 0 0 1 387.4 220.8"
+    <path d="M 124 212 A 136 136 0 0 1 386 218"
           fill="none"
           stroke="url(#upperSyncGrad)"
-          stroke-width="38"
+          stroke-width="44"
           stroke-linecap="round" />
 
-    <!-- Arrowhead (Seamless flush base & aerodynamic tip) -->
-    <path d="M 420 213 L 402 274 L 354 231 Z"
+    <!-- Arrowhead (Seamless, Bold, Aerodynamic) -->
+    <path d="M 424 208 L 402 278 L 350 228 Z"
           fill="#ECEFF4"
           stroke="#ECEFF4"
-          stroke-width="5"
+          stroke-width="4"
           stroke-linejoin="round" />
   </g>
 
   <!-- BOTTOM-LEFT SYNC ARROW (Clockwise lower arc, 180° symmetric) -->
   <g>
     <!-- Sweeping Arc -->
-    <path d="M 383.8 302.5 A 136 136 0 0 1 124.6 291.2"
+    <path d="M 388 300 A 136 136 0 0 1 126 294"
           fill="none"
           stroke="url(#lowerSyncGrad)"
-          stroke-width="38"
+          stroke-width="44"
           stroke-linecap="round" />
 
-    <!-- Arrowhead (Seamless flush base & aerodynamic tip) -->
-    <path d="M 92 299 L 110 238 L 158 281 Z"
+    <!-- Arrowhead (Seamless, Bold, Aerodynamic) -->
+    <path d="M 88 304 L 110 234 L 162 284 Z"
           fill="#81A1C1"
           stroke="#81A1C1"
-          stroke-width="5"
+          stroke-width="4"
           stroke-linejoin="round" />
   </g>
 </svg>
