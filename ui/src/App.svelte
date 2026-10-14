@@ -16,7 +16,8 @@
     Activity,
     Settings,
     X,
-    Check
+    Check,
+    Info
   } from '@lucide/svelte';
   import type { ProfileConfig, Plan, RunReport, RulePredicate, AttachmentMode, HistoryEntry } from './types';
   import {
@@ -110,10 +111,8 @@
     editDest = '';
     editScopes = '';
     editExcludes = '.git, _private, *.draft.md';
-    editAttachmentMode = 'referenced';
-    editRules = [
-      { property: 'status', operator: 'equals', value: 'completed' }
-    ];
+    editAttachmentMode = 'explicit';
+    editRules = [];
     isEditing = true;
     isPreviewing = false;
   }
@@ -125,7 +124,7 @@
     editDest = p.destinationVault;
     editScopes = p.scopes.join(', ');
     editExcludes = (p.excludes || []).join(', ');
-    editAttachmentMode = p.attachments?.mode || 'referenced';
+    editAttachmentMode = p.attachments?.mode || 'explicit';
 
     let rulesList: RulePredicate[] = [];
     if (p.rules) {
@@ -526,8 +525,11 @@
             <p class="rule-hint">Files are only synced if they match all specified conditions (frontmatter or metadata):</p>
 
             {#if editRules.length === 0}
-              <div class="text-xs text-nord3 dark:text-nord4 italic py-2">
-                No rules active. All files inside the folder scopes will be synced.
+              <div class="empty-rules-banner">
+                <Info size={16} class="text-nord10 dark:text-nord8 shrink-0" />
+                <span class="text-xs font-medium text-nord0 dark:text-nord6">
+                  No rules active. All files inside the folder scopes will be synced.
+                </span>
               </div>
             {:else}
               <div class="flex flex-col gap-2 mt-2">
@@ -561,12 +563,18 @@
           </div>
 
           <div class="form-group">
-            <label for="att-mode">Attachment Strategy</label>
-            <select id="att-mode" bind:value={editAttachmentMode}>
-              <option value="referenced">Referenced only (Copy images and linked assets referenced in files)</option>
-              <option value="explicit">Explicit only (Copy all attachments inside selected scopes)</option>
-              <option value="markdown-only">Markdown only (Exclude all non-markdown assets)</option>
-            </select>
+            <label for="att-mode" class="flex items-center justify-between">
+              <span>File Sync & Asset Strategy</span>
+              <span class="text-[0.72rem] text-nord10 dark:text-nord8 font-normal">Controls non-markdown media</span>
+            </label>
+            <div class="select-wrapper">
+              <select id="att-mode" bind:value={editAttachmentMode}>
+                <option value="explicit">All files & assets (Default — syncs all files in folder)</option>
+                <option value="referenced">Referenced only (Only copy images and assets linked in notes)</option>
+                <option value="markdown-only">Markdown only (Exclude all non-markdown files)</option>
+              </select>
+            </div>
+            <span class="hint">Choose whether all files or only markdown-referenced assets are synced to the destination.</span>
           </div>
 
           <div class="form-actions">
@@ -1000,7 +1008,7 @@
     padding: 8px 12px;
   }
 
-  input, select {
+  input {
     padding: 7px 11px;
     background: var(--input-bg);
     color: var(--input-text);
@@ -1011,10 +1019,63 @@
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
-  input:focus, select:focus {
+  input:focus {
     outline: none;
     border-color: var(--input-focus);
     box-shadow: 0 0 0 2px var(--accent-subtle);
+  }
+
+  .select-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    width: 100%;
+    padding: 8px 34px 8px 12px;
+    background-color: var(--input-bg);
+    color: var(--input-text);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    line-height: 1.4;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235e81ac' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px 14px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  :global([data-theme="dark"]) select {
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2388c0d0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  }
+
+  select:hover {
+    border-color: var(--border-active);
+  }
+
+  select:focus {
+    outline: none;
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 2px var(--accent-subtle);
+  }
+
+  .empty-rules-banner {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    margin-top: 6px;
+    border-radius: 6px;
+    background: var(--accent-subtle);
+    border: 1px dashed var(--border-active);
   }
 
   .hint {

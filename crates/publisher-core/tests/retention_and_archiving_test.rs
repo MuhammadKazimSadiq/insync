@@ -1,7 +1,9 @@
-use publisher_core::config::{ProfileConfig, PublisherConfig};
+use publisher_core::config::{ProfileConfig, PublisherConfig, RuleGroup, RulePredicate};
 use publisher_core::engine::PublisherEngine;
 use publisher_core::manifest::load_manifest;
 use publisher_core::plan::PlanAction;
+use publisher_core::rules::Operator;
+use serde_json::json;
 use std::fs;
 use tempfile::tempdir;
 
@@ -28,7 +30,11 @@ fn test_retention_and_safe_archiving() {
             destination_vault: dest_dir.path().to_path_buf(),
             scopes: vec!["Courses".to_string()],
             excludes: vec![],
-            rules: None,
+            rules: Some(RuleGroup::all(vec![RuleGroup::Predicate(RulePredicate {
+                property: "status".to_string(),
+                operator: Operator::Equals,
+                value: Some(json!("completed")),
+            })])),
             attachments: None,
         }],
     };

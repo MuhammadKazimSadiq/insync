@@ -102,121 +102,186 @@ impl PublisherEngine {
         let mut matched_paths = HashSet::new();
         let mut scheduled_attachment_paths = HashSet::new();
 
-        for scope in &profile.scopes {
-            let scope_dir = profile.source_vault.join(scope);
+        let effective_scopes: Vec<String> = if profile.scopes.is_empty() {
+            vec!["".to_string()]
+        } else {
+            profile.scopes.clone()
+        };
+
+        let att_mode = profile
+            .attachments
+            .as_ref()
+            .map(|a| &a.mode)
+            .unwrap_or(&AttachmentMode::Explicit);
+
+        for scope in &effective_scopes {
+            let scope_dir = if scope.is_empty() {
+                profile.source_vault.clone()
+            } else {
+                profile.source_vault.join(scope)
+            };
+
             if !scope_dir.exists() {
                 continue;
             }
 
             for entry in WalkDir::new(&scope_dir).into_iter().filter_map(|e| e.ok()) {
                 let path = entry.path();
-                if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("md") {
-                    let relative_path = path
-                        .strip_prefix(&profile.source_vault)
-                        .map_err(|_| PublisherError::InvalidPath(path.display().to_string()))?
-                        .to_path_buf();
+                if !path.is_file() {
+                    continue;
+                }
 
-                    if self.is_excluded(&relative_path, &profile.excludes) {
-                        continue;
-                    }
+                let relative_path = path
+                    .strip_prefix(&profile.source_vault)
+                    .map_err(|_| PublisherError::InvalidPath(path.display().to_string()))?
+                    .to_path_buf();
 
-                    if let Ok(content) = fs::read_to_string(path) {
-                        if let Some(meta) = extract_frontmatter(&content) {
-                            let is_match = if let Some(rules) = &profile.rules {
+                if self.is_excluded(&relative_path, &profile.excludes) {
+                    continue;
+                }
+
+                let is_markdown = path
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .map(|ext| ext.eq_ignore_ascii_case("md") || ext.eq_ignore_ascii_case("markdown"))
+                    .unwrap_or(false);
+
+                // Filter by attachment/file mode:
+                if *att_mode == AttachmentMode::MarkdownOnly && !is_markdown {
+                    continue;
+                }
+                if *att_mode == AttachmentMode::Referenced && !is_markdown {
+                    // Non-markdown files are only synced when referenced by a matched markdown note
+                    continue;
+                }
+
+                // Check rule matching:
+                let (is_match, note_content) = if is_markdown {
+                    let content = fs::read_to_string(path).ok();
+                    let matches_rules = if let Some(rules) = &profile.rules {
+                        if let Some(ref c) = content {
+                            if let Some(meta) = extract_frontmatter(c) {
                                 evaluate_rule_group(rules, &meta.frontmatter)
                             } else {
-                                meta.frontmatter
-                                    .get("status")
-                                    .and_then(|v| v.as_str())
-                                    == Some("completed")
-                            };
+                                false
+                            }
+                        } else {
+                            false
+                        }
+                    } else {
+                        // No rules active: all files in scope match
+                        true
+                    };
+                    (matches_rules, content)
+                } else {
+                    // Non-markdown file: matches if no rules active
+                    let matches_rules = profile.rules.is_none();
+                    (matches_rules, None)
+                };
 
-                            if is_match {
-                                let rel_str = relative_path.to_string_lossy().to_string();
-                                matched_paths.insert(rel_str.clone());
+                if is_match {
+                    let rel_str = relative_path.to_string_lossy().to_string();
+                    if matched_paths.insert(rel_str.clone()) {
+                        let src_hash = compute_file_sha256(path).unwrap_or_default();
+                        let dest_file = profile.destination_vault.join(&relative_path);
 
-                                let src_hash = compute_file_sha256(path).unwrap_or_default();
-                                let dest_file = profile.destination_vault.join(&relative_path);
-
-                                if let Some(ref manifest) = existing_manifest {
-                                    if let Some(record) = manifest.files.get(&rel_str) {
-                                        if dest_file.exists() {
-                                            let current_dst_hash =
-                                                compute_file_sha256(&dest_file).unwrap_or_default();
-                                            if current_dst_hash != record.destination_hash {
-                                                actions.push(PlanAction::Conflict {
-                                                    relative_path: relative_path.clone(),
-                                                    reason: "Destination file modified externally".to_string(),
-                                                });
-                                                continue;
-                                            }
-                                        }
-
-                                        if record.source_hash == src_hash && dest_file.exists() {
-                                            actions.push(PlanAction::Skip { relative_path: relative_path.clone() });
-                                        } else {
-                                            actions.push(PlanAction::Update { relative_path: relative_path.clone() });
-                                        }
-                                    } else if dest_file.exists() {
-                                        actions.push(PlanAction::Update { relative_path: relative_path.clone() });
-                                    } else {
-                                        actions.push(PlanAction::Create { relative_path: relative_path.clone() });
+                        if let Some(ref manifest) = existing_manifest {
+                            if let Some(record) = manifest.files.get(&rel_str) {
+                                if dest_file.exists() {
+                                    let current_dst_hash =
+                                        compute_file_sha256(&dest_file).unwrap_or_default();
+                                    if current_dst_hash != record.destination_hash {
+                                        actions.push(PlanAction::Conflict {
+                                            relative_path: relative_path.clone(),
+                                            reason: "Destination file modified externally".to_string(),
+                                        });
+                                        continue;
                                     }
-                                } else if dest_file.exists() {
-                                    actions.push(PlanAction::Update { relative_path: relative_path.clone() });
-                                } else {
-                                    actions.push(PlanAction::Create { relative_path: relative_path.clone() });
                                 }
 
-                                // Check attachment policy
-                                if let Some(ref att_cfg) = profile.attachments {
-                                    if att_cfg.mode == AttachmentMode::Referenced {
-                                        let att_refs = extract_attachment_references(&content);
-                                        for att_ref in att_refs {
-                                            if let Some(att_rel) = resolve_attachment_path(
-                                                &profile.source_vault,
-                                                &relative_path,
-                                                &att_ref,
-                                            ) {
-                                                let is_scoped = profile
-                                                    .scopes
-                                                    .iter()
-                                                    .any(|s| att_rel.starts_with(s));
+                                if record.source_hash == src_hash && dest_file.exists() {
+                                    actions.push(PlanAction::Skip {
+                                        relative_path: relative_path.clone(),
+                                    });
+                                } else {
+                                    actions.push(PlanAction::Update {
+                                        relative_path: relative_path.clone(),
+                                    });
+                                }
+                            } else if dest_file.exists() {
+                                actions.push(PlanAction::Update {
+                                    relative_path: relative_path.clone(),
+                                });
+                            } else {
+                                actions.push(PlanAction::Create {
+                                    relative_path: relative_path.clone(),
+                                });
+                            }
+                        } else if dest_file.exists() {
+                            actions.push(PlanAction::Update {
+                                relative_path: relative_path.clone(),
+                            });
+                        } else {
+                            actions.push(PlanAction::Create {
+                                relative_path: relative_path.clone(),
+                            });
+                        }
 
-                                                if is_scoped
-                                                    && !self.is_excluded(&att_rel, &profile.excludes)
-                                                {
-                                                    let att_rel_str =
-                                                        att_rel.to_string_lossy().to_string();
-                                                    if scheduled_attachment_paths.insert(att_rel_str.clone()) {
-                                                        matched_paths.insert(att_rel_str.clone());
-                                                        let att_src = profile.source_vault.join(&att_rel);
-                                                        let att_dst = profile.destination_vault.join(&att_rel);
-                                                        let att_src_hash = compute_file_sha256(&att_src).unwrap_or_default();
+                        // If markdown and in Referenced mode, resolve attachment links
+                        if let Some(ref content) = note_content {
+                            if *att_mode == AttachmentMode::Referenced {
+                                let att_refs = extract_attachment_references(content);
+                                for att_ref in att_refs {
+                                    if let Some(att_rel) = resolve_attachment_path(
+                                        &profile.source_vault,
+                                        &relative_path,
+                                        &att_ref,
+                                    ) {
+                                        let is_scoped = profile.scopes.is_empty()
+                                            || profile.scopes.iter().any(|s| att_rel.starts_with(s));
 
-                                                        if let Some(ref manifest) = existing_manifest {
-                                                            if let Some(record) = manifest.files.get(&att_rel_str) {
-                                                                if att_dst.exists() && record.source_hash == att_src_hash {
-                                                                    actions.push(PlanAction::Skip { relative_path: att_rel });
-                                                                    continue;
-                                                                }
-                                                            }
-                                                        }
+                                        if is_scoped && !self.is_excluded(&att_rel, &profile.excludes) {
+                                            let att_rel_str = att_rel.to_string_lossy().to_string();
+                                            if scheduled_attachment_paths.insert(att_rel_str.clone())
+                                                && matched_paths.insert(att_rel_str.clone())
+                                            {
+                                                let att_src = profile.source_vault.join(&att_rel);
+                                                let att_dst = profile.destination_vault.join(&att_rel);
+                                                let att_src_hash =
+                                                    compute_file_sha256(&att_src).unwrap_or_default();
 
-                                                        if att_dst.exists() {
-                                                            actions.push(PlanAction::Update { relative_path: att_rel });
-                                                        } else {
-                                                            actions.push(PlanAction::Create { relative_path: att_rel });
+                                                if let Some(ref manifest) = existing_manifest {
+                                                    if let Some(record) = manifest.files.get(&att_rel_str) {
+                                                        if att_dst.exists()
+                                                            && record.source_hash == att_src_hash
+                                                        {
+                                                            actions.push(PlanAction::Skip {
+                                                                relative_path: att_rel,
+                                                            });
+                                                            continue;
                                                         }
                                                     }
                                                 }
-                                            } else {
-                                                actions.push(PlanAction::Warn {
-                                                    relative_path: None,
-                                                    reason: format!("Referenced attachment '{}' in '{}' not found", att_ref, rel_str),
-                                                });
+
+                                                if att_dst.exists() {
+                                                    actions.push(PlanAction::Update {
+                                                        relative_path: att_rel,
+                                                    });
+                                                } else {
+                                                    actions.push(PlanAction::Create {
+                                                        relative_path: att_rel,
+                                                    });
+                                                }
                                             }
                                         }
+                                    } else {
+                                        actions.push(PlanAction::Warn {
+                                            relative_path: None,
+                                            reason: format!(
+                                                "Referenced attachment '{}' in '{}' not found",
+                                                att_ref, rel_str
+                                            ),
+                                        });
                                     }
                                 }
                             }
