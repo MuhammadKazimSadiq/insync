@@ -327,7 +327,7 @@
   <header class="header">
     <div class="logo-area">
       <div class="logo-badge">
-        <FolderSync size={22} strokeWidth={2.5} />
+        <img src="/logo.svg" alt="InSync" class="w-10 h-10 rounded-xl" />
       </div>
       <div>
         <div class="flex items-center gap-2">
@@ -394,7 +394,7 @@
     <section class="card profile-list-card">
       <div class="card-header">
         <div class="flex items-center gap-2">
-          <Folder size={18} class="text-nord10 dark:text-nord8" />
+          <Folder size={18} class="text-[var(--accent-text)]" />
           <h2>Synced Folders</h2>
         </div>
         <span class="count-tag">{profiles.length} Active</span>
@@ -453,7 +453,7 @@
 
         {#if profiles.length === 0}
           <div class="empty-state">
-            <Folder size={32} class="mx-auto mb-2 opacity-40 text-nord3 dark:text-nord4" />
+            <Folder size={32} class="mx-auto mb-2 opacity-40 text-[var(--text-muted)]" />
             <p>No synced folders configured yet.</p>
             <button class="btn btn-primary mt-3 inline-flex items-center gap-1.5" on:click={startCreate}>
               <Plus size={15} />
@@ -526,8 +526,8 @@
 
             {#if editRules.length === 0}
               <div class="empty-rules-banner">
-                <Info size={16} class="text-nord10 dark:text-nord8 shrink-0" />
-                <span class="text-xs font-medium text-nord0 dark:text-nord6">
+                <Info size={16} class="empty-rules-icon shrink-0" />
+                <span class="empty-rules-text">
                   No rules active. All files inside the folder scopes will be synced.
                 </span>
               </div>
@@ -565,7 +565,7 @@
           <div class="form-group">
             <label for="att-mode" class="flex items-center justify-between">
               <span>File Sync & Asset Strategy</span>
-              <span class="text-[0.72rem] text-nord10 dark:text-nord8 font-normal">Controls non-markdown media</span>
+              <span class="text-[0.72rem] text-[var(--accent-text)] font-normal">Controls non-markdown media</span>
             </label>
             <div class="select-wrapper">
               <select id="att-mode" bind:value={editAttachmentMode}>
@@ -721,15 +721,17 @@
   }
 
   .logo-badge {
-    width: 44px;
-    height: 44px;
-    background: var(--accent);
-    color: white;
-    border-radius: 10px;
+    width: 42px;
+    height: 42px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .logo-badge img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 
   h1 {
@@ -1070,12 +1072,23 @@
   .empty-rules-banner {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    margin-top: 6px;
+    gap: 10px;
+    padding: 10px 14px;
+    margin-top: 8px;
     border-radius: 6px;
     background: var(--accent-subtle);
     border: 1px dashed var(--border-active);
+  }
+
+  .empty-rules-text {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    line-height: 1.4;
+  }
+
+  .empty-rules-icon {
+    color: var(--accent-text);
   }
 
   .hint {
