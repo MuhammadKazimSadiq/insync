@@ -2,6 +2,8 @@
 
 **InSync** is a sleek, rule-based, one-way folder synchronization tool. It selectively syncs curated files from a **Source Folder** into a **Destination Folder** while preserving external collaborator edits, enforcing strict safety guarantees, and maintaining an immutable change ledger.
 
+**GitHub Repository**: [https://github.com/MuhammadKazimSadiq/insync](https://github.com/MuhammadKazimSadiq/insync)
+
 ---
 
 ## Table of Contents
