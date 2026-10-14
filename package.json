@@ -1,7 +1,7 @@
 {
-  "name": "vault-publisher",
+  "name": "insync",
   "private": true,
-  "description": "Rule-based one-way publisher from private Obsidian source vault to shared destination vault",
+  "description": "InSync: Controlled, rule-based one-way folder sync",
   "scripts": {
     "start": "cargo run -p vault-publisher-desktop --release",
     "desktop": "cargo run -p vault-publisher-desktop --release",

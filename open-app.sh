@@ -14,5 +14,5 @@ if [ "$1" == "--build" ] || [ ! -f "./target/release/vault-publisher-desktop" ];
     cargo build -p vault-publisher-desktop --release
 fi
 
-echo "Launching Vault Publisher desktop app..."
+echo "Launching InSync desktop app..."
 ./target/release/vault-publisher-desktop

@@ -1,5 +1,23 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import {
+    Folder,
+    FolderSync,
+    Plus,
+    Trash2,
+    Play,
+    CheckCircle2,
+    AlertTriangle,
+    Sun,
+    Moon,
+    FileText,
+    Download,
+    History,
+    Activity,
+    Settings,
+    X,
+    Check
+  } from '@lucide/svelte';
   import type { ProfileConfig, Plan, RunReport, RulePredicate, AttachmentMode, HistoryEntry } from './types';
   import {
     listProfiles,
@@ -10,6 +28,8 @@
     reconcileProfile,
     getRunHistory,
     getDiagnostics,
+    selectFolder,
+    exportConfigFile,
   } from './api';
 
   let profiles: ProfileConfig[] = [];
@@ -34,14 +54,12 @@
   let editDest = '';
   let editScopes = '';
   let editExcludes = '';
-  let editRuleProp = 'status';
-  let editRuleOp: any = 'equals';
-  let editRuleVal = 'completed';
   let editAttachmentMode: AttachmentMode = 'referenced';
+  let editRules: Array<{ property: string; operator: any; value: string }> = [];
 
   onMount(async () => {
     // Detect and apply initial theme
-    const savedTheme = localStorage.getItem('vault_publisher_theme');
+    const savedTheme = localStorage.getItem('insync_theme') || localStorage.getItem('vault_publisher_theme');
     if (savedTheme === 'dark' || savedTheme === 'light') {
       currentTheme = savedTheme;
     } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -57,7 +75,7 @@
   function applyTheme(t: 'light' | 'dark') {
     currentTheme = t;
     document.documentElement.setAttribute('data-theme', t);
-    localStorage.setItem('vault_publisher_theme', t);
+    localStorage.setItem('insync_theme', t);
   }
 
   function toggleTheme() {
@@ -69,14 +87,14 @@
     try {
       profiles = await listProfiles();
       if (profiles.length === 0) {
-        // Seed an initial demo profile if empty
+        // Seed an initial demo synced folder if empty
         const initial: ProfileConfig = {
           id: 'shared-notes',
-          name: 'Shared Notes',
-          sourceVault: '/Users/notes/Private Vault',
-          destinationVault: '/Users/notes/Shared Vault',
-          scopes: ['Courses', 'Projects/Public'],
-          excludes: ['.obsidian', '_private', '*.draft.md'],
+          name: 'Shared Documents',
+          sourceVault: '/Users/documents/Source',
+          destinationVault: '/Users/documents/Destination',
+          scopes: ['Documents', 'Projects/Shared'],
+          excludes: ['.git', '_private', '*.draft.md'],
           rules: {
             all: [
               { property: 'status', operator: 'equals', value: 'completed' },
@@ -89,23 +107,23 @@
         profiles = await listProfiles();
       }
     } catch (e: any) {
-      message = 'Failed to load profiles: ' + e;
+      message = 'Failed to load synced folders: ' + e;
     } finally {
       loading = false;
     }
   }
 
   function startCreate() {
-    editId = 'profile-' + Date.now();
-    editName = 'New Profile';
+    editId = 'sync-' + Date.now();
+    editName = 'New Synced Folder';
     editSource = '';
     editDest = '';
-    editScopes = 'Courses';
-    editExcludes = '.obsidian, _private, *.draft.md';
-    editRuleProp = 'status';
-    editRuleOp = 'equals';
-    editRuleVal = 'completed';
+    editScopes = '';
+    editExcludes = '.git, _private, *.draft.md';
     editAttachmentMode = 'referenced';
+    editRules = [
+      { property: 'status', operator: 'equals', value: 'completed' }
+    ];
     isEditing = true;
     isPreviewing = false;
   }
@@ -117,23 +135,68 @@
     editDest = p.destinationVault;
     editScopes = p.scopes.join(', ');
     editExcludes = (p.excludes || []).join(', ');
-    const firstRule = p.rules?.all?.[0];
-    editRuleProp = firstRule?.property || 'status';
-    editRuleOp = firstRule?.operator || 'equals';
-    editRuleVal = firstRule?.value !== undefined ? String(firstRule.value) : 'completed';
     editAttachmentMode = p.attachments?.mode || 'referenced';
+
+    const rulesFromProfile = p.rules?.all || [];
+    if (rulesFromProfile.length > 0) {
+      editRules = rulesFromProfile.map((r) => ({
+        property: r.property || 'status',
+        operator: r.operator || 'equals',
+        value: r.value !== undefined ? String(r.value) : '',
+      }));
+    } else {
+      editRules = [];
+    }
+
     isEditing = true;
     isPreviewing = false;
   }
 
+  function addRule() {
+    editRules = [
+      ...editRules,
+      { property: 'status', operator: 'equals', value: 'completed' }
+    ];
+  }
+
+  function removeRule(index: number) {
+    editRules = editRules.filter((_, i) => i !== index);
+  }
+
+  async function pickSourceFolder() {
+    const picked = await selectFolder();
+    if (picked) {
+      editSource = picked;
+    }
+  }
+
+  async function pickDestFolder() {
+    const picked = await selectFolder();
+    if (picked) {
+      editDest = picked;
+    }
+  }
+
   async function handleSave() {
     if (!editId || !editName || !editSource || !editDest) {
-      alert('Please fill in Profile Name, Source Vault, and Destination Vault.');
+      alert('Please fill in Synced Folder Name, Source Folder, and Destination Folder.');
       return;
     }
 
-    const valParsed =
-      editRuleVal === 'true' ? true : editRuleVal === 'false' ? false : editRuleVal;
+    const mappedRules: RulePredicate[] = editRules
+      .filter((r) => r.property.trim() !== '')
+      .map((r) => {
+        let parsedVal: any = r.value;
+        if (r.value === 'true') parsedVal = true;
+        else if (r.value === 'false') parsedVal = false;
+        else if (!isNaN(Number(r.value)) && r.value.trim() !== '') parsedVal = Number(r.value);
+
+        return {
+          property: r.property.trim(),
+          operator: r.operator,
+          value: r.operator === 'exists' || r.operator === 'notExists' ? undefined : parsedVal,
+        };
+      });
 
     const profileToSave: ProfileConfig = {
       id: editId,
@@ -142,30 +205,22 @@
       destinationVault: editDest,
       scopes: editScopes.split(',').map((s) => s.trim()).filter(Boolean),
       excludes: editExcludes.split(',').map((s) => s.trim()).filter(Boolean),
-      rules: {
-        all: [
-          {
-            property: editRuleProp,
-            operator: editRuleOp,
-            value: valParsed,
-          },
-        ],
-      },
+      rules: mappedRules.length > 0 ? { all: mappedRules } : null,
       attachments: { mode: editAttachmentMode },
     };
 
     try {
       await saveProfile(profileToSave);
       isEditing = false;
-      message = `Saved profile '${profileToSave.name}' successfully.`;
+      message = `Saved synced folder '${profileToSave.name}' successfully.`;
       await refreshProfiles();
     } catch (e: any) {
-      alert('Error saving profile: ' + e);
+      alert('Error saving synced folder: ' + e);
     }
   }
 
   async function handleDelete(id: string) {
-    if (confirm(`Are you sure you want to delete profile '${id}'?`)) {
+    if (confirm(`Are you sure you want to delete synced folder '${id}'?`)) {
       await deleteProfile(id);
       await refreshProfiles();
     }
@@ -190,13 +245,12 @@
     loading = true;
     try {
       lastReport = await applyProfile(id);
-      message = `Applied profile '${id}': ${lastReport.created_count} created, ${lastReport.updated_count} updated.`;
-      // Refresh preview to show updated status
+      message = `Sync completed for '${id}': ${lastReport.created_count} created, ${lastReport.updated_count} updated.`;
       if (selectedProfile) {
         activePlan = await previewProfile(selectedProfile.id);
       }
     } catch (e: any) {
-      alert('Error applying plan: ' + e);
+      alert('Error applying sync: ' + e);
     } finally {
       loading = false;
     }
@@ -223,15 +277,15 @@
     isViewingHistory = true;
   }
 
-  function exportConfig() {
-    const blob = new Blob([JSON.stringify({ version: 1, profiles }, null, 2)], {
-      type: 'application/json',
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'vault-publisher-config.json';
-    a.click();
+  async function handleExportConfig() {
+    try {
+      const savedPath = await exportConfigFile();
+      if (savedPath) {
+        message = `Configuration exported successfully to: ${savedPath}`;
+      }
+    } catch (err: any) {
+      alert('Error exporting configuration: ' + err);
+    }
   }
 
   function getActionKey(action: any): string {
@@ -250,41 +304,80 @@
 </script>
 
 <main class="app-container">
+  <!-- TOP BAR -->
   <header class="header">
     <div class="logo-area">
-      <div class="logo-badge">VP</div>
+      <div class="logo-badge">
+        <FolderSync size={22} strokeWidth={2.5} />
+      </div>
       <div>
-        <h1>Vault Publisher</h1>
-        <p class="subtitle">Controlled rule-based publishing for Obsidian vaults</p>
+        <div class="flex items-center gap-2">
+          <h1>InSync</h1>
+          <span class="version-tag">v0.1.0</span>
+        </div>
+        <p class="subtitle">Controlled, rule-based one-way folder sync</p>
       </div>
     </div>
+
     <div class="header-actions">
+      <!-- Theme Switcher -->
       <button class="btn btn-secondary theme-toggle-btn" on:click={toggleTheme} title="Switch Light / Dark Theme">
         {#if currentTheme === 'dark'}
-          🌙 Dark Mode
+          <Sun size={15} />
+          <span>Light</span>
         {:else}
-          ☀️ Light Mode
+          <Moon size={15} />
+          <span>Dark</span>
         {/if}
       </button>
-      <button class="btn btn-secondary" on:click={showHistory}>Activity Log</button>
-      <button class="btn btn-secondary" on:click={exportConfig}>Export Config</button>
-      <button class="btn btn-secondary" on:click={showDiagnostics}>Diagnostics</button>
-      <button class="btn btn-primary" on:click={startCreate}>+ New Profile</button>
+
+      <!-- Activity Log -->
+      <button class="btn btn-secondary" on:click={showHistory} title="View recent runs">
+        <History size={15} />
+        <span>Activity Log</span>
+      </button>
+
+      <!-- Export Config -->
+      <button class="btn btn-secondary" on:click={handleExportConfig} title="Export configuration to file">
+        <Download size={15} />
+        <span>Export Config</span>
+      </button>
+
+      <!-- Diagnostics -->
+      <button class="btn btn-secondary" on:click={showDiagnostics} title="View system diagnostics">
+        <Activity size={15} />
+        <span>Diagnostics</span>
+      </button>
+
+      <!-- New Synced Folder -->
+      <button class="btn btn-primary" on:click={startCreate}>
+        <Plus size={16} strokeWidth={2.5} />
+        <span>New Synced Folder</span>
+      </button>
     </div>
   </header>
 
+  <!-- ALERT NOTIFICATION -->
   {#if message}
     <div class="alert alert-info">
-      <span>{message}</span>
-      <button class="close-btn" on:click={() => (message = '')}>×</button>
+      <div class="flex items-center gap-2">
+        <CheckCircle2 size={16} />
+        <span>{message}</span>
+      </div>
+      <button class="close-btn" on:click={() => (message = '')} title="Dismiss">
+        <X size={16} />
+      </button>
     </div>
   {/if}
 
   <div class="content-grid">
-    <!-- PROFILES LIST -->
+    <!-- LEFT PANEL: SYNCED FOLDERS LIST -->
     <section class="card profile-list-card">
       <div class="card-header">
-        <h2>Publishing Profiles</h2>
+        <div class="flex items-center gap-2">
+          <Folder size={18} class="text-nord10 dark:text-nord8" />
+          <h2>Synced Folders</h2>
+        </div>
         <span class="count-tag">{profiles.length} Active</span>
       </div>
 
@@ -297,28 +390,56 @@
                 <span class="badge badge-active">Active</span>
               </div>
               <div class="path-details">
-                <div><span class="path-label">From:</span> <code>{p.sourceVault}</code></div>
-                <div><span class="path-label">To:</span> <code>{p.destinationVault}</code></div>
+                <div class="flex items-center gap-1.5 overflow-hidden text-ellipsis">
+                  <span class="path-label">Source:</span>
+                  <code title={p.sourceVault}>{p.sourceVault}</code>
+                </div>
+                <div class="flex items-center gap-1.5 overflow-hidden text-ellipsis">
+                  <span class="path-label">Destination:</span>
+                  <code title={p.destinationVault}>{p.destinationVault}</code>
+                </div>
               </div>
               <div class="rule-summary">
-                <strong>Rule:</strong> {p.rules?.all?.[0]?.property || 'status'} {p.rules?.all?.[0]?.operator || 'equals'} {JSON.stringify(p.rules?.all?.[0]?.value ?? 'completed')}
-                &bull; <strong>Scope:</strong> {p.scopes.join(', ')}
+                {#if p.rules?.all && p.rules.all.length > 0}
+                  <span><strong>Filter Rules:</strong> {p.rules.all.length} rule{p.rules.all.length > 1 ? 's' : ''}</span>
+                {:else}
+                  <span><strong>Filter Rules:</strong> None (all files in scope)</span>
+                {/if}
+                {#if p.scopes.length > 0}
+                  &bull; <span><strong>Scopes:</strong> {p.scopes.join(', ')}</span>
+                {/if}
               </div>
             </div>
 
             <div class="profile-actions">
-              <button class="btn btn-outline" on:click={() => handlePreview(p)}>Preview</button>
-              <button class="btn btn-outline" on:click={() => handleReconcile(p.id)}>Reconcile</button>
-              <button class="btn btn-outline" on:click={() => startEdit(p)}>Edit</button>
-              <button class="btn btn-danger-outline" on:click={() => handleDelete(p.id)}>Delete</button>
+              <button class="btn btn-outline" on:click={() => handlePreview(p)}>
+                <Play size={13} />
+                <span>Preview</span>
+              </button>
+              <button class="btn btn-outline" on:click={() => handleReconcile(p.id)}>
+                <FolderSync size={13} />
+                <span>Reconcile</span>
+              </button>
+              <button class="btn btn-outline" on:click={() => startEdit(p)}>
+                <Settings size={13} />
+                <span>Edit</span>
+              </button>
+              <button class="btn btn-danger-outline" on:click={() => handleDelete(p.id)}>
+                <Trash2 size={13} />
+                <span>Delete</span>
+              </button>
             </div>
           </div>
         {/each}
 
         {#if profiles.length === 0}
           <div class="empty-state">
-            <p>No publishing profiles configured yet.</p>
-            <button class="btn btn-primary" style="margin-top: 10px;" on:click={startCreate}>Create your first profile</button>
+            <Folder size={32} class="mx-auto mb-2 opacity-40 text-nord3 dark:text-nord4" />
+            <p>No synced folders configured yet.</p>
+            <button class="btn btn-primary mt-3 inline-flex items-center gap-1.5" on:click={startCreate}>
+              <Plus size={15} />
+              <span>Add your first synced folder</span>
+            </button>
           </div>
         {/if}
       </div>
@@ -328,95 +449,133 @@
     <section class="card detail-card">
       {#if isEditing}
         <div class="card-header">
-          <h2>{editId.startsWith('profile-') ? 'Create Profile' : 'Edit Profile'}</h2>
+          <h2>{editId.startsWith('sync-') ? 'Create Synced Folder' : 'Edit Synced Folder'}</h2>
           <button class="btn btn-ghost" on:click={() => (isEditing = false)}>Cancel</button>
         </div>
 
         <form on:submit|preventDefault={handleSave}>
           <div class="form-group">
-            <label for="name">Profile Name</label>
-            <input id="name" bind:value={editName} placeholder="e.g. Shared Notes" />
+            <label for="name">Folder Sync Name</label>
+            <input id="name" bind:value={editName} placeholder="e.g. Work Documents Sync" />
+          </div>
+
+          <!-- SOURCE FOLDER WITH NATIVE PICKER -->
+          <div class="form-group">
+            <label for="source">Source Folder</label>
+            <div class="input-picker-row">
+              <input id="source" bind:value={editSource} placeholder="/Users/username/SourceFolder" class="flex-1" />
+              <button type="button" class="btn btn-secondary picker-btn" on:click={pickSourceFolder} title="Choose folder in Finder">
+                <Folder size={15} />
+                <span>Browse...</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- DESTINATION FOLDER WITH NATIVE PICKER -->
+          <div class="form-group">
+            <label for="dest">Destination Folder</label>
+            <div class="input-picker-row">
+              <input id="dest" bind:value={editDest} placeholder="/Users/username/DestinationFolder" class="flex-1" />
+              <button type="button" class="btn btn-secondary picker-btn" on:click={pickDestFolder} title="Choose folder in Finder">
+                <Folder size={15} />
+                <span>Browse...</span>
+              </button>
+            </div>
           </div>
 
           <div class="form-group">
-            <label for="source">Source Vault Path (Private)</label>
-            <input id="source" bind:value={editSource} placeholder="/Users/me/Documents/MyNotes" />
-          </div>
-
-          <div class="form-group">
-            <label for="dest">Destination Vault Path (Shared)</label>
-            <input id="dest" bind:value={editDest} placeholder="/Users/me/Documents/SharedNotes" />
-          </div>
-
-          <div class="form-group">
-            <label for="scopes">Scope Folders (comma-separated)</label>
+            <label for="scopes">Scope Subfolders (comma-separated)</label>
             <input id="scopes" bind:value={editScopes} placeholder="Courses, Projects/Public" />
-            <span class="hint">Leave empty to include all non-excluded folders</span>
+            <span class="hint">Leave empty to sync all subfolders in the source folder</span>
           </div>
 
           <div class="form-group">
             <label for="excludes">Exclusions (comma-separated patterns)</label>
-            <input id="excludes" bind:value={editExcludes} placeholder=".obsidian, _private, *.draft.md" />
+            <input id="excludes" bind:value={editExcludes} placeholder=".git, _private, *.draft.md" />
           </div>
 
+          <!-- MULTI-RULE FILTER BUILDER -->
           <div class="form-box">
-            <h3>Publishing Filter Rule</h3>
-            <p class="rule-hint">Notes are only published if frontmatter matches this predicate:</p>
-            <div class="form-row">
-              <div class="flex-1">
-                <label for="prop">Frontmatter Field</label>
-                <input id="prop" bind:value={editRuleProp} placeholder="status" />
-              </div>
-              <div>
-                <label for="op">Operator</label>
-                <select id="op" bind:value={editRuleOp}>
-                  <option value="equals">equals</option>
-                  <option value="notEquals">not equals</option>
-                  <option value="contains">contains</option>
-                  <option value="exists">exists</option>
-                  <option value="notExists">not exists</option>
-                </select>
-              </div>
-              <div class="flex-1">
-                <label for="val">Expected Value</label>
-                <input id="val" bind:value={editRuleVal} placeholder="completed or true" />
-              </div>
+            <div class="flex justify-between items-center mb-1">
+              <h3>Publishing Filter Rules</h3>
+              <button type="button" class="btn btn-sm btn-outline text-xs flex items-center gap-1" on:click={addRule}>
+                <Plus size={13} />
+                <span>Add Rule</span>
+              </button>
             </div>
+            <p class="rule-hint">Files are only synced if they match all specified conditions (frontmatter or metadata):</p>
+
+            {#if editRules.length === 0}
+              <div class="text-xs text-nord3 dark:text-nord4 italic py-2">
+                No rules active. All files inside the folder scopes will be synced.
+              </div>
+            {:else}
+              <div class="flex flex-col gap-2 mt-2">
+                {#each editRules as rule, i}
+                  <div class="rule-item-row">
+                    <div class="flex-1">
+                      <input bind:value={rule.property} placeholder="Property (e.g. status)" class="w-full text-xs" />
+                    </div>
+                    <div class="w-32">
+                      <select bind:value={rule.operator} class="w-full text-xs">
+                        <option value="equals">equals</option>
+                        <option value="notEquals">not equals</option>
+                        <option value="contains">contains</option>
+                        <option value="exists">exists</option>
+                        <option value="notExists">not exists</option>
+                        <option value="in">in</option>
+                      </select>
+                    </div>
+                    {#if rule.operator !== 'exists' && rule.operator !== 'notExists'}
+                      <div class="flex-1">
+                        <input bind:value={rule.value} placeholder="Value (e.g. completed)" class="w-full text-xs" />
+                      </div>
+                    {/if}
+                    <button type="button" class="btn-icon-danger" on:click={() => removeRule(i)} title="Remove this rule">
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                {/each}
+              </div>
+            {/if}
           </div>
 
           <div class="form-group">
             <label for="att-mode">Attachment Strategy</label>
             <select id="att-mode" bind:value={editAttachmentMode}>
-              <option value="referenced">Referenced only (Copy images/files linked in published notes)</option>
-              <option value="explicit">Explicit only (Copy attachments explicitly inside scope)</option>
-              <option value="markdown-only">Markdown only (Do not copy attachments)</option>
+              <option value="referenced">Referenced only (Copy images and linked assets referenced in files)</option>
+              <option value="explicit">Explicit only (Copy all attachments inside selected scopes)</option>
+              <option value="markdown-only">Markdown only (Exclude all non-markdown assets)</option>
             </select>
           </div>
 
           <div class="form-actions">
             <button type="button" class="btn btn-secondary" on:click={() => (isEditing = false)}>Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Profile</button>
+            <button type="submit" class="btn btn-primary">Save Synced Folder</button>
           </div>
         </form>
       {:else if isPreviewing && activePlan}
         <div class="card-header">
           <div>
-            <h2>Plan Preview: {selectedProfile?.name}</h2>
+            <h2>Sync Preview: {selectedProfile?.name}</h2>
             <span class="subtitle">{activePlan.actions.length} planned operations</span>
           </div>
           <div style="display: flex; gap: 8px;">
-            <button class="btn btn-primary" on:click={() => activePlan && handleApply(activePlan.profile_id)}>Apply Plan Now</button>
+            <button class="btn btn-primary" on:click={() => activePlan && handleApply(activePlan.profile_id)}>
+              <Play size={14} />
+              <span>Apply Sync Now</span>
+            </button>
             <button class="btn btn-ghost" on:click={() => (isPreviewing = false)}>Close</button>
           </div>
         </div>
 
         {#if lastReport}
           <div class="report-banner">
-            <strong>Execution Completed:</strong>
+            <div class="font-semibold mb-1">Execution Summary:</div>
             +{lastReport.created_count} created, ~{lastReport.updated_count} updated,
             -{lastReport.archived_count} archived, {lastReport.skipped_count} skipped
             {#if lastReport.conflict_count > 0}
-              <span class="text-danger">&bull; {lastReport.conflict_count} conflicts preserved</span>
+              <span class="text-danger font-semibold">&bull; {lastReport.conflict_count} external collaborator conflicts preserved</span>
             {/if}
           </div>
         {/if}
@@ -434,15 +593,16 @@
           {/each}
           {#if activePlan.actions.length === 0}
             <div class="empty-state">
-              <p>Everything is currently up to date. No actions pending.</p>
+              <CheckCircle2 size={24} class="mx-auto mb-1 text-nord14 opacity-80" />
+              <p>Everything is currently up to date. No pending sync actions.</p>
             </div>
           {/if}
         </div>
       {:else}
         <div class="placeholder-state">
-          <div class="placeholder-icon">📂</div>
-          <h3>Select a Profile</h3>
-          <p>Click "Preview" on any profile to simulate publishing diffs without writing files, or click "+ New Profile" to create a new sync mapping.</p>
+          <FolderSync size={44} class="placeholder-icon" />
+          <h3>Select a Synced Folder</h3>
+          <p>Click "Preview" on any synced folder to inspect changes before writing files, or click "+ New Synced Folder" to configure a new folder mapping.</p>
         </div>
       {/if}
     </section>
@@ -452,9 +612,14 @@
   {#if diagnosticsData}
     <div class="modal-backdrop" on:click={() => (diagnosticsData = null)} on:keydown={(e) => e.key === 'Escape' && (diagnosticsData = null)} role="presentation">
       <div class="modal" role="dialog" aria-modal="true" tabindex="-1" on:click|stopPropagation on:keydown|stopPropagation>
-        <h2>System Diagnostics</h2>
+        <div class="flex justify-between items-center mb-3">
+          <h2>System Diagnostics</h2>
+          <button class="btn-icon" on:click={() => (diagnosticsData = null)}><X size={16} /></button>
+        </div>
         <pre>{JSON.stringify(diagnosticsData, null, 2)}</pre>
-        <button class="btn btn-secondary" on:click={() => (diagnosticsData = null)}>Close</button>
+        <div class="flex justify-end mt-4">
+          <button class="btn btn-secondary" on:click={() => (diagnosticsData = null)}>Close</button>
+        </div>
       </div>
     </div>
   {/if}
@@ -462,8 +627,11 @@
   <!-- HISTORY MODAL -->
   {#if isViewingHistory}
     <div class="modal-backdrop" on:click={() => (isViewingHistory = false)} on:keydown={(e) => e.key === 'Escape' && (isViewingHistory = false)} role="presentation">
-      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" style="max-width: 650px;" on:click|stopPropagation on:keydown|stopPropagation>
-        <h2>Recent Execution History</h2>
+      <div class="modal" role="dialog" aria-modal="true" tabindex="-1" style="max-width: 680px;" on:click|stopPropagation on:keydown|stopPropagation>
+        <div class="flex justify-between items-center mb-3">
+          <h2>Recent Execution History</h2>
+          <button class="btn-icon" on:click={() => (isViewingHistory = false)}><X size={16} /></button>
+        </div>
         {#if historyList.length === 0}
           <p style="color: var(--text-muted); margin: 20px 0;">No run history entries recorded yet.</p>
         {:else}
@@ -471,30 +639,32 @@
             <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem; color: var(--text-primary);">
               <thead>
                 <tr style="border-bottom: 2px solid var(--border-color); text-align: left; color: var(--text-muted);">
-                  <th style="padding: 6px;">Profile</th>
-                  <th style="padding: 6px;">Created</th>
-                  <th style="padding: 6px;">Updated</th>
-                  <th style="padding: 6px;">Archived</th>
-                  <th style="padding: 6px;">Conflicts</th>
-                  <th style="padding: 6px;">Duration</th>
+                  <th style="padding: 8px 6px;">Folder Sync</th>
+                  <th style="padding: 8px 6px;">Created</th>
+                  <th style="padding: 8px 6px;">Updated</th>
+                  <th style="padding: 8px 6px;">Archived</th>
+                  <th style="padding: 8px 6px;">Conflicts</th>
+                  <th style="padding: 8px 6px;">Duration</th>
                 </tr>
               </thead>
               <tbody>
                 {#each historyList as h}
                   <tr style="border-bottom: 1px solid var(--border-color);">
-                    <td style="padding: 6px;"><strong>{h.profileId}</strong></td>
-                    <td style="padding: 6px; color: var(--badge-create-text);">+{h.created}</td>
-                    <td style="padding: 6px; color: var(--badge-update-text);">~{h.updated}</td>
-                    <td style="padding: 6px; color: var(--badge-archive-text);">-{h.archived}</td>
-                    <td style="padding: 6px; color: var(--badge-conflict-text);">{h.conflicts}</td>
-                    <td style="padding: 6px; color: var(--text-muted);">{h.durationMs}ms</td>
+                    <td style="padding: 8px 6px;"><strong>{h.profileId}</strong></td>
+                    <td style="padding: 8px 6px; color: var(--badge-create-text);">+{h.created}</td>
+                    <td style="padding: 8px 6px; color: var(--badge-update-text);">~{h.updated}</td>
+                    <td style="padding: 8px 6px; color: var(--badge-archive-text);">-{h.archived}</td>
+                    <td style="padding: 8px 6px; color: var(--badge-conflict-text);">{h.conflicts}</td>
+                    <td style="padding: 8px 6px; color: var(--text-muted);">{h.durationMs}ms</td>
                   </tr>
                 {/each}
               </tbody>
             </table>
           </div>
         {/if}
-        <button class="btn btn-secondary" on:click={() => (isViewingHistory = false)}>Close</button>
+        <div class="flex justify-end">
+          <button class="btn btn-secondary" on:click={() => (isViewingHistory = false)}>Close</button>
+        </div>
       </div>
     </div>
   {/if}
@@ -512,14 +682,14 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
-    padding-bottom: 16px;
+    padding-bottom: 18px;
     border-bottom: 1px solid var(--border-color);
   }
 
   .logo-area {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
   }
 
   .logo-badge {
@@ -527,35 +697,41 @@
     height: 44px;
     background: var(--accent);
     color: white;
-    font-weight: 700;
-    border-radius: 8px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
   }
 
   h1 {
     margin: 0;
-    font-size: 1.5rem;
+    font-size: 1.45rem;
     font-weight: 700;
+    letter-spacing: -0.02em;
     color: var(--text-h);
   }
 
-  .subtitle {
-    margin: 4px 0 0;
+  .version-tag {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--btn-sec-bg);
     color: var(--text-muted);
-    font-size: 0.9rem;
+    border: 1px solid var(--border-color);
+  }
+
+  .subtitle {
+    margin: 2px 0 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
   }
 
   .header-actions {
     display: flex;
     gap: 8px;
     align-items: center;
-  }
-
-  .theme-toggle-btn {
-    font-weight: 600;
   }
 
   .content-grid {
@@ -570,9 +746,10 @@
     }
   }
 
+  /* Sleek Cards */
   .card {
     background: var(--bg-card);
-    border-radius: 12px;
+    border-radius: 10px;
     border: 1px solid var(--border-color);
     padding: 20px;
     box-shadow: var(--shadow);
@@ -588,17 +765,18 @@
 
   .card-header h2 {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: 1.15rem;
     font-weight: 600;
+    letter-spacing: -0.01em;
     color: var(--text-h);
   }
 
   .count-tag {
-    background: var(--accent-light);
+    background: var(--accent-subtle);
     color: var(--accent-text);
-    padding: 3px 10px;
+    padding: 2px 10px;
     border-radius: 12px;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-weight: 600;
   }
 
@@ -632,7 +810,7 @@
 
   .profile-title-row h3 {
     margin: 0;
-    font-size: 1.05rem;
+    font-size: 1rem;
     font-weight: 600;
     color: var(--text-h);
   }
@@ -641,13 +819,13 @@
     background: var(--badge-create-bg);
     color: var(--badge-create-text);
     padding: 2px 8px;
-    border-radius: 12px;
-    font-size: 0.75rem;
+    border-radius: 10px;
+    font-size: 0.72rem;
     font-weight: 600;
   }
 
   .path-details {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     margin: 6px 0;
     display: flex;
     flex-direction: column;
@@ -656,8 +834,9 @@
 
   .path-label {
     color: var(--text-muted);
-    font-weight: 600;
-    margin-right: 6px;
+    font-weight: 500;
+    font-size: 0.78rem;
+    min-width: 75px;
   }
 
   code {
@@ -666,12 +845,12 @@
     padding: 2px 6px;
     border-radius: 4px;
     font-family: var(--font-mono);
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     border: 1px solid var(--border-color);
   }
 
   .rule-summary {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--text-secondary);
   }
 
@@ -681,14 +860,24 @@
     flex-wrap: wrap;
   }
 
+  /* Sleek Buttons (shadcn style) */
   .btn {
-    padding: 6px 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 13px;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 500;
     cursor: pointer;
     border: 1px solid transparent;
     transition: all 0.15s ease;
+  }
+
+  .btn-sm {
+    padding: 4px 8px;
+    font-size: 0.75rem;
   }
 
   .btn-primary {
@@ -720,7 +909,7 @@
   .btn-danger-outline {
     background: var(--bg-card);
     border-color: #fca5a5;
-    color: #ef4444;
+    color: var(--badge-conflict-text);
   }
   .btn-danger-outline:hover {
     background: var(--badge-conflict-bg);
@@ -734,6 +923,39 @@
     color: var(--text-primary);
   }
 
+  .btn-icon {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn-icon:hover {
+    color: var(--text-primary);
+    background: var(--btn-sec-bg);
+  }
+
+  .btn-icon-danger {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--badge-conflict-text);
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+  }
+  .btn-icon-danger:hover {
+    background: var(--badge-conflict-bg);
+  }
+
+  /* Form Elements */
   .form-group {
     display: flex;
     flex-direction: column;
@@ -742,36 +964,41 @@
   }
 
   .form-group label {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-secondary);
   }
 
+  .input-picker-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .picker-btn {
+    white-space: nowrap;
+    padding: 8px 12px;
+  }
+
   input, select {
-    padding: 8px 10px;
+    padding: 7px 11px;
     background: var(--input-bg);
     color: var(--input-text);
     border: 1px solid var(--input-border);
     border-radius: 6px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-family: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
   }
 
   input:focus, select:focus {
     outline: none;
-    border-color: var(--accent);
+    border-color: var(--input-focus);
+    box-shadow: 0 0 0 2px var(--accent-subtle);
   }
-
-  .form-row {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-  }
-
-  .flex-1 { flex: 1; }
 
   .hint {
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     color: var(--text-muted);
   }
 
@@ -784,15 +1011,22 @@
   }
 
   .form-box h3 {
-    margin: 0 0 4px;
-    font-size: 0.95rem;
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
     color: var(--text-h);
   }
 
   .rule-hint {
-    margin: 0 0 10px;
-    font-size: 0.8rem;
+    margin: 2px 0 8px;
+    font-size: 0.76rem;
     color: var(--text-muted);
+  }
+
+  .rule-item-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
   }
 
   .form-actions {
@@ -802,6 +1036,7 @@
     margin-top: 16px;
   }
 
+  /* Plan Rows & Diffs */
   .plan-actions-list {
     display: flex;
     flex-direction: column;
@@ -816,7 +1051,7 @@
     gap: 10px;
     padding: 8px 12px;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     background: var(--bg-card-subtle);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
@@ -830,8 +1065,8 @@
   .tag-warn { background: var(--badge-warn-bg); color: var(--badge-warn-text); }
 
   .action-tag {
-    font-size: 0.75rem;
-    padding: 2px 6px;
+    font-size: 0.72rem;
+    padding: 2px 8px;
     border-radius: 4px;
     font-weight: 600;
     min-width: 60px;
@@ -842,10 +1077,13 @@
     font-family: var(--font-mono);
     flex: 1;
     color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .action-reason {
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     color: var(--badge-conflict-text);
   }
 
@@ -856,10 +1094,10 @@
     padding: 10px 14px;
     border-radius: 6px;
     margin-bottom: 14px;
-    font-size: 0.85rem;
+    font-size: 0.82rem;
   }
 
-  .text-danger { color: var(--badge-conflict-text); font-weight: 600; }
+  .text-danger { color: var(--badge-conflict-text); }
 
   .placeholder-state {
     text-align: center;
@@ -869,11 +1107,14 @@
 
   .placeholder-state h3 {
     color: var(--text-h);
+    margin-top: 12px;
+    font-size: 1.1rem;
   }
 
   .placeholder-icon {
-    font-size: 2.5rem;
-    margin-bottom: 12px;
+    margin: 0 auto;
+    opacity: 0.4;
+    color: var(--accent);
   }
 
   .empty-state {
@@ -889,6 +1130,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    font-size: 0.85rem;
   }
 
   .alert-info {
@@ -900,9 +1142,14 @@
   .close-btn {
     background: none;
     border: none;
-    font-size: 1.2rem;
     cursor: pointer;
     color: inherit;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.8;
+  }
+  .close-btn:hover {
+    opacity: 1;
   }
 
   .modal-backdrop {
@@ -919,8 +1166,8 @@
     background: var(--modal-bg);
     color: var(--text-primary);
     padding: 24px;
-    border-radius: 12px;
-    max-width: 500px;
+    border-radius: 10px;
+    max-width: 520px;
     width: 100%;
     border: 1px solid var(--border-color);
     box-shadow: var(--shadow);
@@ -928,7 +1175,8 @@
 
   .modal h2 {
     color: var(--text-h);
-    margin-top: 0;
+    margin: 0;
+    font-size: 1.15rem;
   }
 
   pre {
@@ -938,7 +1186,7 @@
     padding: 12px;
     border-radius: 6px;
     overflow-x: auto;
-    font-size: 0.8rem;
+    font-size: 0.78rem;
     font-family: var(--font-mono);
   }
 </style>

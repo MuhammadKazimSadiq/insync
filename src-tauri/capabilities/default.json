@@ -1,12 +1,13 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Default capability for Vault Publisher desktop window",
+  "description": "Default capability for InSync desktop window",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:default",
     "core:webview:default",
-    "core:event:default"
+    "core:event:default",
+    "dialog:default"
   ]
 }

@@ -11,10 +11,20 @@ use tauri::Manager;
 
 fn main() {
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    let default_config_path = PathBuf::from(home)
+    let insync_path = PathBuf::from(&home)
+        .join(".config")
+        .join("insync")
+        .join("config.json");
+    let legacy_path = PathBuf::from(&home)
         .join(".config")
         .join("vault-publisher")
         .join("config.json");
+
+    let default_config_path = if legacy_path.exists() && !insync_path.exists() {
+        legacy_path
+    } else {
+        insync_path
+    };
 
     let state = AppState::new(default_config_path);
 
@@ -27,7 +37,7 @@ fn main() {
                 let _ = window.set_focus();
             }
 
-            let open_item = MenuItem::with_id(app, "open", "Open Vault Publisher", true, None::<&str>)?;
+            let open_item = MenuItem::with_id(app, "open", "Open InSync", true, None::<&str>)?;
             let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let tray_menu = Menu::with_items(app, &[&open_item, &quit_item])?;
 
@@ -58,6 +68,8 @@ fn main() {
             commands::reconcile_profile,
             commands::get_run_history,
             commands::get_diagnostics,
+            commands::select_folder,
+            commands::export_config_file,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
