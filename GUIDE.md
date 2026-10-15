@@ -214,5 +214,57 @@ Configurations are stored in JSON (`~/.config/insync/config.json`):
 
 1. **One-Way Direction**: Syncs exclusively from Source to Destination; never alters your source files.
 2. **Collaborator Conflict Detection**: Compares destination file hashes against `.vault-publisher/manifest.json`. If a collaborator modified a file directly in the shared folder, InSync will **never overwrite it**.
-3. **Non-Destructive Archiving**: Deleted source files are safely archived to `.vault-publisher-archive/` in the destination folder rather than destroyed.
+3. **Non-Destructive Archiving**: Deleted source files or notes excluded by updated rules are safely archived to `.vault-publisher-archive/` in the destination folder rather than destroyed.
 4. **Atomic Staging**: Files are written to temporary staging files first and swapped into place atomically.
+
+---
+
+## Automatic Background Sync
+
+Each Synced Folder can be configured for **Automatic Background Sync**:
+1. Click **Edit** on any Synced Folder.
+2. Toggle **Automatic Background Sync** to ON.
+3. Click **Save Synced Folder**.
+
+When enabled, InSync starts a debounced event watcher (2-second quiet period). As you create, edit, rename, or delete files in your Source Folder, InSync will automatically sync them to the Destination Folder in the background — even if you close the main window and leave InSync running in your top menu bar / system tray.
+
+---
+
+## Cross-Platform Releases: macOS (.dmg) & Windows (.msi / .exe)
+
+InSync is 100% cross-platform. We maintain automated GitHub Actions CI/CD workflows:
+
+### Commits/Pushes vs. Releases: What is the Difference?
+
+* **Regular Commits & Pushes**:
+  * Every time you save code or push (`git push origin main`), our lightweight **CI workflow** runs unit tests and builds the frontend in ~30 seconds to ensure the codebase remains clean.
+  * Heavy installer bundling is **skipped** on regular pushes to keep development fast and conserve CI minutes.
+
+* **Releases (Milestones)**:
+  * A **Release** is an intentional version milestone (e.g., `v0.1.0`).
+  * When a Release is published, our **Release workflow** spins up real macOS and Windows runners to package:
+    * **macOS**: `InSync.dmg` installer & `InSync.app.tar.gz`
+    * **Windows**: `InSync_x64_en-US.msi` installer & standalone `.exe`
+  * These installers are automatically uploaded directly to the GitHub Release page as downloadable assets!
+
+### How to Trigger a Release
+
+You can cut a release in two easy ways:
+
+1. **Via Git Tags (Command Line)**:
+   ```bash
+   git tag v0.1.0
+   git push origin v0.1.0
+   ```
+   GitHub Actions will detect the `v*` tag, build both installers, and publish the release.
+
+2. **Via GitHub Web UI**:
+   - Go to your repository on GitHub: [https://github.com/MuhammadKazimSadiq/insync](https://github.com/MuhammadKazimSadiq/insync)
+   - Click **Releases** $\rightarrow$ **Draft a new release**.
+   - Enter a tag name (e.g. `v0.1.0`), title, and click **Publish release**.
+   - GitHub Actions will automatically compile and attach the `.dmg` and `.msi` installers!
+
+3. **Via Manual Trigger (One-Click)**:
+   - Go to the **Actions** tab on GitHub.
+   - Click **Release InSync** on the left.
+   - Click **Run workflow** $\rightarrow$ enter a version tag (e.g. `v0.1.0`) $\rightarrow$ **Run workflow**.

@@ -1,0 +1,65 @@
+name: Release InSync
+
+on:
+  release:
+    types: [published]
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag name for the release (e.g. v0.1.0)'
+        required: false
+        default: 'v0.1.0'
+
+jobs:
+  build-and-release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: ''
+          - platform: 'windows-latest'
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: 'ui/package-lock.json'
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Install frontend dependencies
+        run: npm --prefix ui ci
+
+      - name: Build frontend
+        run: npm --prefix ui run build
+
+      - name: Build and package Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.event.inputs.tag_name || github.ref_name }}
+          releaseName: 'InSync ${{ github.event.inputs.tag_name || github.ref_name }}'
+          releaseBody: 'Download the official installer for macOS (.dmg) or Windows (.msi / .exe) below.'
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }}

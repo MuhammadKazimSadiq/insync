@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+    tags-ignore:
+      - 'v*'
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    name: Test and Build Verification
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+          cache-dependency-path: 'ui/package-lock.json'
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+
+      - name: Install UI dependencies
+        run: npm --prefix ui ci
+
+      - name: Build UI
+        run: npm --prefix ui run build
+
+      - name: Run Test Suite
+        run: cargo test

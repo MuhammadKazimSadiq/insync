@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <!-- Top Sweeping Arc -->
+  <path d="M 142 230 A 130 130 0 0 1 370 216"
+        fill="none"
+        stroke="#FFFFFF"
+        stroke-width="48"
+        stroke-linecap="round" />
+  <!-- Top Arrowhead -->
+  <polygon points="374,164 428,238 338,246"
+           fill="#FFFFFF"
+           stroke="#FFFFFF"
+           stroke-width="4"
+           stroke-linejoin="round" />
+
+  <!-- Bottom Sweeping Arc -->
+  <path d="M 370 282 A 130 130 0 0 1 142 296"
+        fill="none"
+        stroke="#FFFFFF"
+        stroke-width="48"
+        stroke-linecap="round" />
+  <!-- Bottom Arrowhead -->
+  <polygon points="138,348 84,274 174,266"
+           fill="#FFFFFF"
+           stroke="#FFFFFF"
+           stroke-width="4"
+           stroke-linejoin="round" />
+
+  <!-- Central Precision Core -->
+  <circle cx="256" cy="256" r="22" fill="#FFFFFF" />
+</svg>
