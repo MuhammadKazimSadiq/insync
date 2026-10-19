@@ -241,7 +241,7 @@ InSync is 100% cross-platform. We maintain automated GitHub Actions CI/CD workfl
   * Heavy installer bundling is **skipped** on regular pushes to keep development fast and conserve CI minutes.
 
 * **Releases (Milestones)**:
-  * A **Release** is an intentional version milestone (e.g., `v0.1.0`).
+  * A **Release** is an intentional version milestone (e.g., `v1.0.0`).
   * When a Release is published, our **Release workflow** spins up real macOS and Windows runners to package:
     * **macOS**: `InSync.dmg` installer & `InSync.app.tar.gz`
     * **Windows**: `InSync_x64_en-US.msi` installer & standalone `.exe`
@@ -253,18 +253,18 @@ You can cut a release in two easy ways:
 
 1. **Via Git Tags (Command Line)**:
    ```bash
-   git tag v0.1.0
-   git push origin v0.1.0
+   git tag v1.0.0
+   git push origin v1.0.0
    ```
    GitHub Actions will detect the `v*` tag, build both installers, and publish the release.
 
 2. **Via GitHub Web UI**:
    - Go to your repository on GitHub: [https://github.com/MuhammadKazimSadiq/insync](https://github.com/MuhammadKazimSadiq/insync)
    - Click **Releases** $\rightarrow$ **Draft a new release**.
-   - Enter a tag name (e.g. `v0.1.0`), title, and click **Publish release**.
+   - Enter a tag name (e.g. `v1.0.0`), title, and click **Publish release**.
    - GitHub Actions will automatically compile and attach the `.dmg` and `.msi` installers!
 
 3. **Via Manual Trigger (One-Click)**:
    - Go to the **Actions** tab on GitHub.
    - Click **Release InSync** on the left.
-   - Click **Run workflow** $\rightarrow$ enter a version tag (e.g. `v0.1.0`) $\rightarrow$ **Run workflow**.
+   - Click **Run workflow** $\rightarrow$ enter a version tag (e.g. `v1.0.0`) $\rightarrow$ **Run workflow**.

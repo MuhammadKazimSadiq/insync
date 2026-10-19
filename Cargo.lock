@@ -2613,7 +2613,7 @@ dependencies = [
 
 [[package]]
 name = "publisher-core"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "hex",
  "notify",
@@ -4045,7 +4045,7 @@ dependencies = [
 
 [[package]]
 name = "vault-publisher"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "clap",
  "publisher-core",
@@ -4054,7 +4054,7 @@ dependencies = [
 
 [[package]]
 name = "vault-publisher-desktop"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "objc2",
  "objc2-app-kit",

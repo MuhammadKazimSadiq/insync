@@ -1,8 +1,12 @@
 {
   "name": "insync",
   "private": true,
+  "version": "1.0.0",
   "description": "InSync: Controlled, rule-based one-way folder sync",
   "scripts": {
+    "tauri": "tauri",
+    "dev": "npm --prefix ui run dev",
+    "build": "npm --prefix ui run build",
     "start": "cargo run -p vault-publisher-desktop --release",
     "desktop": "cargo run -p vault-publisher-desktop --release",
     "desktop:bin": "./target/release/vault-publisher-desktop",
@@ -10,5 +14,8 @@
     "ui:build": "npm --prefix ui run build",
     "cli": "cargo run -p vault-publisher --",
     "test": "cargo test"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.3"
   }
 }

@@ -337,7 +337,7 @@
       <div>
         <div class="flex items-center gap-2">
           <h1>InSync</h1>
-          <span class="version-tag">v0.1.0</span>
+          <span class="version-tag">v1.0.0</span>
         </div>
         <p class="subtitle">Controlled, rule-based one-way folder sync</p>
       </div>

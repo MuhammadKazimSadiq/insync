@@ -86,7 +86,7 @@ pub fn get_diagnostics(state: State<AppState>) -> Result<Value, String> {
     let history_count = state.history.lock().map(|h| h.len()).unwrap_or(0);
     Ok(json!({
         "app": "InSync",
-        "version": "0.1.0",
+        "version": env!("CARGO_PKG_VERSION"),
         "syncedFoldersCount": cfg.profiles.len(),
         "syncedFolders": cfg.profiles.iter().map(|p| p.id.clone()).collect::<Vec<_>>(),
         "historyEntriesCount": history_count,

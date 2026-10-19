@@ -139,7 +139,7 @@ export async function getDiagnostics(): Promise<any> {
   }
   return {
     app: 'InSync',
-    version: '0.1.0-web',
+    version: '1.0.0-web',
     mode: 'Browser Sandbox',
     os: typeof navigator !== 'undefined' ? navigator.userAgent : 'Unknown',
     syncedFoldersCount: (await listProfiles()).length,

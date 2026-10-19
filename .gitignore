@@ -4,4 +4,4 @@
 .DS_Store
 InSync.app/
 ui/dist/
-ui/node_modules/
+node_modules/
